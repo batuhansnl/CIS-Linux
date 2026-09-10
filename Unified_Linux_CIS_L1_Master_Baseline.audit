@@ -1,0 +1,1903 @@
+# ==============================================================================
+# TENABLE NESSUS - BİRLEŞİK LİNUX CIS LEVEL 1 (L1) MASTER SERVER AUDIT DOSYASI
+# ==============================================================================
+# Bu audit dosyası, kurumsal altyapınızdaki TÜM LİNUX SUNUCULARI (Server Profile) tek
+# bir scan politikası üzerinden CIS Benchmark Level 1 standartlarında denetlemek
+# amacıyla özel olarak hazırlanmıştır.
+#
+# DESTEKLENEN DAĞITIMLAR VE ÇEKİRDEK (KERNEL) SÜRÜMLERİ:
+# ------------------------------------------------------------------------------
+# 1. RHEL / Red Hat Ailesi : RHEL 9 (9.3, 9.4, 9.6, 9.7, 9.8), RHEL 8.10, RHEL 7.9,
+#                            Oracle Linux 7/8/9, Rocky Linux 8/9, CentOS 6/7, RHCOS.
+# 2. Ubuntu Ailesi         : Ubuntu 24.04 LTS, Ubuntu 22.04 LTS, 20.04 LTS, 18.04 LTS.
+# 3. SUSE Ailesi           : SLES 16 (Kernel 6.x), SLES 15 / SLES for SAP (Kernel 5.x),
+#                            SLES 12 (Kernel 4.x).
+# 4. Debian Ailesi         : Debian 12 Bookworm, Debian 13 Trixie (Kernel 6.x).
+#
+# MİMARİ VE ÇALIŞMA PRENSİBİ:
+# ------------------------------------------------------------------------------
+# - %100 SERVER PROFİLİ: Masaüstü / Workstation bileşenleri (GUI, GDM, Bluetooth vb.)
+#   kapsam dışı bırakılmış; sunucuda asla bulunmaması gereken servislerin (CUPS, Avahi,
+#   DHCP vb.) kapatılması kurala bağlanmıştır.
+# - EVRENSEL ÇEKİRDEK: Kuralların büyük bölümü Linux kernel ve POSIX standartları gereği
+#   tüm dağıtımlarda aynı çalışır (SSH, Sysctl, Dosya İzinleri, Cron, Parola Politikaları).
+# - DİNAMİK KOŞULLU MANTIK (<if><condition>): Dağıtımların ayrıştığı güvenlik modülleri
+#   (SELinux vs AppArmor) ve güvenlik duvarları (firewalld vs UFW vs nftables) hedef
+#   sunucunun /etc/os-release kimliğine bakılarak otomatik ve hatasız çalıştırılır.
+# ==============================================================================
+
+<check_type:"Unix">
+
+# ------------------------------------------------------------------------------
+# KULLANICI ARAYÜZÜ DEĞİŞKENLERİ (UI METADATA)
+# Nessus Web arayüzünde bu değerler tek tıkla kurum politikanıza göre değiştirilebilir.
+# ------------------------------------------------------------------------------
+#<ui_metadata>
+#<display_name>Birleşik Linux CIS Level 1 Master Server Güvenlik Denetimi</display_name>
+#<spec>
+#  <type>CIS</type>
+#  <name>Unified Linux CIS L1 Baseline</name>
+#  <profile>L1 Server</profile>
+#  <version>1.0.0</version>
+#</spec>
+#<labels>unix,linux,cis,l1,server,rhel,ubuntu,suse,debian,centos,rocky,oracle</labels>
+#<variables>
+#  <variable>
+#    <name>BANNER_TEXT</name>
+#    <default>Yetkili personel harici erisim yasaktir. Tum hareketler kayit altina alinmaktadir.</default>
+#    <description>Giris Uyarisi Banner Metni</description>
+#    <info>Sisteme SSH veya konsoldan baglanan kullanicilara gosterilecek yasal uyari metni.</info>
+#    <value_type>STRING</value_type>
+#  </variable>
+#  <variable>
+#    <name>PASS_MAX_DAYS</name>
+#    <default>365</default>
+#    <description>Maksimum Parola Gecerlilik Suresi (Gun)</description>
+#    <info>Kullanicinin parolasini degistirmeden kullanabilecegi en fazla gun sayisi (CIS standardi en fazla 365 onerir).</info>
+#    <value_type>STRING</value_type>
+#  </variable>
+#  <variable>
+#    <name>PASS_MIN_DAYS</name>
+#    <default>1</default>
+#    <description>Minimum Parola Degistirme Bekleme Suresi (Gun)</description>
+#    <info>Kullanicinin parolasini degistirdikten sonra tekrar degistirmek icin beklemesi gereken sure.</info>
+#    <value_type>STRING</value_type>
+#  </variable>
+#  <variable>
+#    <name>PASS_WARN_AGE</name>
+#    <default>7</default>
+#    <description>Parola Sona Erme Uyarisi (Gun)</description>
+#    <info>Parola dolmadan kac gun once kullaniciya uyari gosterilecegi.</info>
+#    <value_type>STRING</value_type>
+#  </variable>
+#  <variable>
+#    <name>SSH_CLIENT_ALIVE_INTERVAL</name>
+#    <default>300</default>
+#    <description>SSH Bos Oturum Kontrol Araligi (Saniye)</description>
+#    <info>SSH sunucusunun istemcinin hala bagli olup olmadigini kontrol etme sikligi (300 sn = 5 dk).</info>
+#    <value_type>STRING</value_type>
+#  </variable>
+#  <variable>
+#    <name>SSH_CLIENT_ALIVE_COUNT_MAX</name>
+#    <default>3</default>
+#    <description>SSH Yanitsiz Baglanti Siniri</description>
+#    <info>Kac cevapsiz kontrolden sonra bosta kalan SSH oturumunun koparilacagi (3 x 300 sn = 15 dk sonra koparilir).</info>
+#    <value_type>STRING</value_type>
+#  </variable>
+#</variables>
+#</ui_metadata>
+
+# ==============================================================================
+# BÖLÜM 1: DOSYA SİSTEMLERİ VE DEPOLAMA SIKILAŞTIRMASI
+# ==============================================================================
+# AYARIN AMACI: Linux çekirdeğindeki kullanılmayan eski dosya sistemi sürücülerinin
+# ve USB depolama aygıtlarının kapatılmasıdır.
+# GÜVENLİK RİSKİ: Bir saldırgan bozuk imaj dosyaları bağlayarak çekirdekteki bellek
+# taşması açıklarını tetikleyebilir ve doğrudan root yetkisi kazanabilir.
+# BULGU SEVİYESİ: ORTA / DÜŞÜK
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 1.1.1 cramfs Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "1.1.1 cramfs dosya sistemi surucusunun devre disi oldugunu dogrula"
+  info        : "AYARIN ANLAMI: cramfs salt okunur eski bir gomulu dosya sistemidir.
+TEHLIKE: Saldirgan bozuk cramfs imajlariyla kernel zafiyeti tetikleyebilir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'install cramfs /bin/true' > /etc/modprobe.d/cramfs.conf && rmmod cramfs 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|1.1.1.1"
+  cmd         : "/sbin/modprobe -n -v cramfs 2>&1"
+  expect      : "(install /bin/(true|false)|FATAL: Module cramfs not found|cannot find module cramfs)"
+  severity    : MEDIUM
+</custom_item>
+
+# 1.1.2 freevxfs Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "1.1.2 freevxfs dosya sistemi surucusunun devre disi oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Veritas dosya sistemi surucusudur, sunucularda kullanilmaz.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'install freevxfs /bin/true' > /etc/modprobe.d/freevxfs.conf && rmmod freevxfs 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|1.1.1.2"
+  cmd         : "/sbin/modprobe -n -v freevxfs 2>&1"
+  expect      : "(install /bin/(true|false)|FATAL: Module freevxfs not found|cannot find module freevxfs)"
+  severity    : LOW
+</custom_item>
+
+# 1.1.3 jffs2 Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "1.1.3 jffs2 dosya sistemi surucusunun devre disi oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Flaş bellek dosya sistemidir. Kurumsal sunucularda atak yuzeyini azaltmak icin kapatilir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'install jffs2 /bin/true' > /etc/modprobe.d/jffs2.conf && rmmod jffs2 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|1.1.1.3"
+  cmd         : "/sbin/modprobe -n -v jffs2 2>&1"
+  expect      : "(install /bin/(true|false)|FATAL: Module jffs2 not found|cannot find module jffs2)"
+  severity    : LOW
+</custom_item>
+
+# 1.1.4 hfs ve hfsplus Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "1.1.4 hfs ve hfsplus dosya sistemi suruculerinin devre disi oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Eski Apple dosya sistemleridir. Linux sunucularda gereksizdir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'install hfs /bin/true' > /etc/modprobe.d/hfs.conf && echo 'install hfsplus /bin/true' > /etc/modprobe.d/hfsplus.conf"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|1.1.1.4"
+  cmd         : "/sbin/modprobe -n -v hfs 2>&1"
+  expect      : "(install /bin/(true|false)|FATAL: Module hfs not found|cannot find module hfs)"
+  severity    : LOW
+</custom_item>
+
+# 1.1.5 udf Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "1.1.5 udf dosya sistemi surucusunun devre disi oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Optik CD/DVD dosya bicimidir. Sunucuda fiziksel optik surucu yoksa kapatilmalidir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'install udf /bin/true' > /etc/modprobe.d/udf.conf && rmmod udf 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|1.1.1.5"
+  cmd         : "/sbin/modprobe -n -v udf 2>&1"
+  expect      : "(install /bin/(true|false)|FATAL: Module udf not found|cannot find module udf)"
+  severity    : LOW
+</custom_item>
+
+# 1.1.6 USB Depolama (usb-storage) Devre Dışı Bırakılması
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "1.1.6 usb-storage surucusunun devre disi birakildigini dogrula"
+  info        : "AYARIN ANLAMI: Sunucuya fiziksel USB bellek takilarak veri sizdirilmasini veya zararli yazilim yuklenmesini engeller.
+TEHLIKE: Fiziksel erisimi olan kisilerin sisteme dogrudan USB bellek ile sizmasini engeller.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'install usb-storage /bin/true' > /etc/modprobe.d/usb-storage.conf && rmmod usb-storage 2>/dev/null"
+  reference   : "800-53|MP-7,CSCv8|3.3,CIS-L1|1.1.23"
+  cmd         : "/sbin/modprobe -n -v usb-storage 2>&1"
+  expect      : "(install /bin/(true|false)|FATAL: Module usb-storage not found|cannot find module usb-storage)"
+  severity    : MEDIUM
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 2: DİSK BÖLÜMLERİ VE GÜVENLİ MOUNT SEÇENEKLERİ
+# ==============================================================================
+# AYARIN AMACI: /tmp, /var/tmp, /dev/shm gibi herkesin yazabildiği geçici dizinlerde
+# 'nodev', 'nosuid' ve 'noexec' bayraklarını zorunlu kılmaktır.
+# GÜVENLİK RİSKİ: Saldırganlar web açıkları (RCE/LFI) veya düşük yetkili kullanıcılar
+# üzerinden zararlı script veya SUID rootkitlerini bu dizinlere yazıp çalıştırır.
+# Bu bayraklar saldırganın zararlı kodunu çalıştırmasını anında engeller!
+# BULGU SEVİYESİ: YÜKSEK (High Severity)
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 2.1 /dev/shm 'nodev'
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "2.1 /dev/shm bolumunde 'nodev' bayraginin ayarli oldugunu dogrula"
+  info        : "AYARIN ANLAMI: /dev/shm altinda ozel aygit dosyasi (device file) olusturulamaz.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "/etc/fstab dosyasinda /dev/shm satirina 'nodev' ekleyin: mount -o remount,nodev /dev/shm"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.15"
+  cmd         : "mount | grep -E '\s/dev/shm\s'"
+  expect      : "nodev"
+  severity    : HIGH
+</custom_item>
+
+# 2.2 /dev/shm 'nosuid'
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "2.2 /dev/shm bolumunde 'nosuid' bayraginin ayarli oldugunu dogrula"
+  info        : "AYARIN ANLAMI: /dev/shm altinda SUID izinli dosya calistirilarak root olunamaz!
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "/etc/fstab icinde /dev/shm satirina 'nosuid' ekleyin: mount -o remount,nosuid /dev/shm"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.16"
+  cmd         : "mount | grep -E '\s/dev/shm\s'"
+  expect      : "nosuid"
+  severity    : HIGH
+</custom_item>
+
+# 2.3 /dev/shm 'noexec'
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "2.3 /dev/shm bolumunde 'noexec' bayraginin ayarli oldugunu dogrula"
+  info        : "AYARIN ANLAMI: /dev/shm altinda hicbir ikili kod (binary/script) dogrudan calistirilamaz.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "/etc/fstab icinde /dev/shm satirina 'noexec' ekleyin: mount -o remount,noexec /dev/shm"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.17"
+  cmd         : "mount | grep -E '\s/dev/shm\s'"
+  expect      : "noexec"
+  severity    : HIGH
+</custom_item>
+
+# 2.4 /tmp 'nodev'
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "2.4 /tmp bolumunde 'nodev' bayraginin ayarli oldugunu dogrula"
+  info        : "AYARIN ANLAMI: /tmp altinda aygit dosyalari engellenir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "mount -o remount,nodev /tmp"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.3"
+  cmd         : "mount | grep -E '\s/tmp\s'"
+  expect      : "nodev"
+  severity    : MEDIUM
+</custom_item>
+
+# 2.5 /tmp 'nosuid'
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "2.5 /tmp bolumunde 'nosuid' bayraginin ayarli oldugunu dogrula"
+  info        : "AYARIN ANLAMI: /tmp altindaki dosyalar calistirildiginda root yetkisi kazanamaz.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "mount -o remount,nosuid /tmp"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.4"
+  cmd         : "mount | grep -E '\s/tmp\s'"
+  expect      : "nosuid"
+  severity    : HIGH
+</custom_item>
+
+# 2.6 /tmp 'noexec'
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "2.6 /tmp bolumunde 'noexec' bayraginin ayarli oldugunu dogrula"
+  info        : "AYARIN ANLAMI: /tmp altinda program veya script calistirilamaz.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "mount -o remount,noexec /tmp"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.5"
+  cmd         : "mount | grep -E '\s/tmp\s'"
+  expect      : "noexec"
+  severity    : HIGH
+</custom_item>
+
+# 2.7 /var/tmp 'nodev', 'nosuid', 'noexec'
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "2.7 /var/tmp bolumunde 'nosuid' ve 'noexec' bayraklarini dogrula"
+  info        : "AYARIN ANLAMI: /var/tmp gecici dizininde yetki yukseltme ve kod calistirma engellenir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "mount -o remount,nodev,nosuid,noexec /var/tmp"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.8"
+  cmd         : "mount | grep -E '\s/var/tmp\s'"
+  expect      : "nosuid"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 3: SÜREÇ SIKILAŞTIRMASI, ASLR, PTRACE VE BOOTLOADER GÜVENLİĞİ
+# ==============================================================================
+# AYARIN AMACI: Bellek dökümlerinin engellenmesi, ASLR ile bellek düzeninin
+# rastgeleleştirilmesi, ptrace yetkilerinin sınırlandırılması ve GRUB yapılandırma
+# dosyasının korunmasıdır.
+# GÜVENLİK RİSKİ: Bellek dökümleri parolaları ifşa eder. Zayıf GRUB izinleri ise
+# sunucuya yerel/konsol erişimi olan birinin tek kullanıcı moduna (single-user / init 1)
+# geçerek şifresiz root olmasını sağlar!
+# BULGU SEVİYESİ: YÜKSEK / ORTA
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 3.1 limits.conf Core Dump 0
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "3.1 /etc/security/limits.conf icinde core dump sinirinin '0' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Hicbir kullanicinin core dump (bellek dokumu) uretememesidir.
+TEHLIKE: Coken programlarin bellekteki sifreleri diske yazmasini onler.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo '* hard core 0' >> /etc/security/limits.conf"
+  reference   : "800-53|SC-7,CSCv8|8.5,CIS-L1|1.5.1"
+  file        : "/etc/security/limits.conf"
+  regex       : "^\*\s+hard\s+core\s+"
+  expect      : "^\*\s+hard\s+core\s+0"
+  severity    : MEDIUM
+</custom_item>
+
+# 3.2 sysctl fs.suid_dumpable = 0
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "3.2 sysctl fs.suid_dumpable degerinin '0' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: SUID (root yetkili) surecler cokerse bellek dokumu uretilmez.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w fs.suid_dumpable=0 && echo 'fs.suid_dumpable = 0' > /etc/sysctl.d/60-fs.conf"
+  reference   : "800-53|SC-7,CSCv8|8.5,CIS-L1|1.5.2"
+  cmd         : "/sbin/sysctl fs.suid_dumpable"
+  expect      : "^fs\.suid_dumpable\s*=\s*0"
+  severity    : MEDIUM
+</custom_item>
+
+# 3.3 ASLR: kernel.randomize_va_space = 2
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "3.3 sysctl kernel.randomize_va_space degerinin '2' (Tam ASLR) oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Programlarin bellekteki adreslerini rastgele dizer.
+TEHLIKE: Buffer overflow (bellek tasmasi) exploitlerinin basari sansini sifirlar!
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w kernel.randomize_va_space=2 && echo 'kernel.randomize_va_space = 2' > /etc/sysctl.d/60-aslr.conf"
+  reference   : "800-53|SI-16,CSCv8|8.5,CIS-L1|1.5.3"
+  cmd         : "/sbin/sysctl kernel.randomize_va_space"
+  expect      : "^kernel\.randomize_va_space\s*=\s*2"
+  severity    : HIGH
+</custom_item>
+
+# 3.4 Ptrace Kısıtlaması (kernel.yama.ptrace_scope >= 1)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "3.4 sysctl kernel.yama.ptrace_scope degerinin en az '1' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Bir surecin baska bir surecin bellegini okumasini (debugging/hooking) kisitlar.
+TEHLIKE: Yetkisiz kullanicilarin bellekteki diger programlarin verilerini calma riskini onler.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w kernel.yama.ptrace_scope=1 && echo 'kernel.yama.ptrace_scope = 1' >> /etc/sysctl.d/60-ptrace.conf"
+  reference   : "800-53|AC-6,CSCv8|8.5,CIS-L1|1.5.4"
+  cmd         : "/sbin/sysctl kernel.yama.ptrace_scope 2>/dev/null"
+  expect      : "^kernel\.yama\.ptrace_scope\s*=\s*[1-3]"
+  severity    : MEDIUM
+</custom_item>
+
+# 3.5 GRUB Yapılandırma Dosyası İzinleri (0600 root:root)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "3.5 GRUB bootloader yapilandirma dosyasinin izinlerinin 600 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: /boot/grub2/grub.cfg veya /boot/grub/grub.cfg dosyasini sadece root okuyup yazabilir.
+TEHLIKE: Dosyayi degistiren bir kisi acilis parametrelerine 'init=/bin/sh' ekleyip sifresiz root olabilir!
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "find /boot -name 'grub*.cfg' -exec chmod 600 {} + -exec chown root:root {} +"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.4.1"
+  cmd         : "stat -c '%a %u %g' $(find /boot -name 'grub*.cfg' 2>/dev/null | head -n 1)"
+  expect      : "^(600|400) 0 0$"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 4: ÇEKİRDEK VE TCP/IP AĞ PARAMETRELERİ (SYSCTL)
+# ==============================================================================
+# AYARIN AMACI: Linux çekirdeğinin ağ yığınını kurumsal sunucu güvenliğine göre
+# ayarlamaktır.
+# GÜVENLİK RİSKİ: Varsayılan Linux TCP/IP ayarları yönlendirici (router) gibi
+# çalışmaya ve sahte paketlere toleranslıdır. Bu ayarlar kapatılmazsa IP Spoofing,
+# Man-in-the-Middle (MitM) ve SYN Flood DoS saldırıları başarılı olur.
+# BULGU SEVİYESİ: YÜKSEK / ORTA
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 4.1 IP Forwarding Kapalı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.1 sysctl net.ipv4.ip_forward degerinin '0' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucunun aglar arasi paket yonlendirmesini (routing) kapatir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.ip_forward=0 && echo 'net.ipv4.ip_forward = 0' > /etc/sysctl.d/60-net.conf"
+  reference   : "800-53|AC-4,CSCv8|4.4,CIS-L1|3.1.1"
+  cmd         : "/sbin/sysctl net.ipv4.ip_forward"
+  expect      : "^net\.ipv4\.ip_forward\s*=\s*0"
+  severity    : HIGH
+</custom_item>
+
+# 4.2 Send Redirects Kapalı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.2 sysctl send_redirects degerinin '0' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucunun agdaki diger cihazlara rota degistirme paketi gonderememesidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.conf.all.send_redirects=0 && sysctl -w net.ipv4.conf.default.send_redirects=0"
+  reference   : "800-53|AC-4,CSCv8|4.4,CIS-L1|3.1.2"
+  cmd         : "/sbin/sysctl net.ipv4.conf.all.send_redirects"
+  expect      : "^net\.ipv4\.conf\.all\.send_redirects\s*=\s*0"
+  severity    : MEDIUM
+</custom_item>
+
+# 4.3 Accept Source Route Kapalı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.3 sysctl accept_source_route degerinin '0' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Paketi gonderenin belirttigi rotanin kabul edilmemesidir.
+TEHLIKE: Saldirganin guvenlik duvarlarini atlatarak sahte IP ile baglanmasini onler.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.conf.all.accept_source_route=0 && sysctl -w net.ipv4.conf.default.accept_source_route=0"
+  reference   : "800-53|AC-4,CSCv8|4.4,CIS-L1|3.2.1"
+  cmd         : "/sbin/sysctl net.ipv4.conf.all.accept_source_route"
+  expect      : "^net\.ipv4\.conf\.all\.accept_source_route\s*=\s*0"
+  severity    : HIGH
+</custom_item>
+
+# 4.4 Accept ICMP Redirects Kapalı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.4 sysctl accept_redirects degerinin '0' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Disaridan gelen sahte rota yonlendirme paketlerinin reddedilmesidir.
+TEHLIKE: Ag trafiginin saldirgan makineye kaydirilmasini (Man-in-the-Middle) onler.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.conf.all.accept_redirects=0 && sysctl -w net.ipv4.conf.default.accept_redirects=0"
+  reference   : "800-53|AC-4,CSCv8|4.4,CIS-L1|3.2.2"
+  cmd         : "/sbin/sysctl net.ipv4.conf.all.accept_redirects"
+  expect      : "^net\.ipv4\.conf\.all\.accept_redirects\s*=\s*0"
+  severity    : MEDIUM
+</custom_item>
+
+# 4.5 Secure ICMP Redirects Kapalı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.5 sysctl secure_redirects degerinin '0' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Yalnizca bilinen gateway'lerden gelse dahi redirect paketlerinin reddedilmesidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.conf.all.secure_redirects=0 && sysctl -w net.ipv4.conf.default.secure_redirects=0"
+  reference   : "800-53|AC-4,CSCv8|4.4,CIS-L1|3.2.3"
+  cmd         : "/sbin/sysctl net.ipv4.conf.all.secure_redirects"
+  expect      : "^net\.ipv4\.conf\.all\.secure_redirects\s*=\s*0"
+  severity    : MEDIUM
+</custom_item>
+
+# 4.6 Log Martians Aktif
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.6 sysctl log_martians degerinin '1' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Gelmesi mantiksiz sahte paketlerin loglanmasidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.conf.all.log_martians=1 && sysctl -w net.ipv4.conf.default.log_martians=1"
+  reference   : "800-53|AU-2,CSCv8|8.2,CIS-L1|3.2.4"
+  cmd         : "/sbin/sysctl net.ipv4.conf.all.log_martians"
+  expect      : "^net\.ipv4\.conf\.all\.log_martians\s*=\s*1"
+  severity    : MEDIUM
+</custom_item>
+
+# 4.7 Ignore ICMP Broadcasts Aktif
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.7 sysctl icmp_echo_ignore_broadcasts degerinin '1' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Broadcast IP'ye gonderilen ping isteklerine yanit verilmemesidir.
+TEHLIKE: Sunucunun Smurf DoS saldirisinda yuksek trafik ureten bir araci yapilmasini onler.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1"
+  reference   : "800-53|SC-5,CSCv8|4.4,CIS-L1|3.2.5"
+  cmd         : "/sbin/sysctl net.ipv4.icmp_echo_ignore_broadcasts"
+  expect      : "^net\.ipv4\.icmp_echo_ignore_broadcasts\s*=\s*1"
+  severity    : MEDIUM
+</custom_item>
+
+# 4.8 Ignore Bogus ICMP Responses Aktif
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.8 sysctl icmp_ignore_bogus_error_responses degerinin '1' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Hatali ICMP hata paketlerinin loglari doldurmasini engeller.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1"
+  reference   : "800-53|SC-5,CSCv8|4.4,CIS-L1|3.2.6"
+  cmd         : "/sbin/sysctl net.ipv4.icmp_ignore_bogus_error_responses"
+  expect      : "^net\.ipv4\.icmp_ignore_bogus_error_responses\s*=\s*1"
+  severity    : LOW
+</custom_item>
+
+# 4.9 Reverse Path Filtering (rp_filter = 1)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.9 sysctl rp_filter (Reverse Path) degerinin '1' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: IP Spoofing (sahte kaynak IP) saldirilarini filtreler.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.conf.all.rp_filter=1 && sysctl -w net.ipv4.conf.default.rp_filter=1"
+  reference   : "800-53|SC-7,CSCv8|4.4,CIS-L1|3.2.7"
+  cmd         : "/sbin/sysctl net.ipv4.conf.all.rp_filter"
+  expect      : "^net\.ipv4\.conf\.all\.rp_filter\s*=\s*1"
+  severity    : HIGH
+</custom_item>
+
+# 4.10 TCP SYN Cookies (tcp_syncookies = 1)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.10 sysctl net.ipv4.tcp_syncookies degerinin '1' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: TCP SYN Flood DoS saldirisinda sunucunun baglanti tablosunun kilitlenmesini engeller.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv4.tcp_syncookies=1"
+  reference   : "800-53|SC-5,CSCv8|4.4,CIS-L1|3.2.8"
+  cmd         : "/sbin/sysctl net.ipv4.tcp_syncookies"
+  expect      : "^net\.ipv4\.tcp_syncookies\s*=\s*1"
+  severity    : HIGH
+</custom_item>
+
+# 4.11 IPv6 Router Advertisement (accept_ra = 0)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.11 sysctl net.ipv6.conf.all.accept_ra degerinin '0' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucunun sahte IPv6 yonlendirici duyurularini kabul etmesini yasaklar.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sysctl -w net.ipv6.conf.all.accept_ra=0 2>/dev/null && sysctl -w net.ipv6.conf.default.accept_ra=0 2>/dev/null"
+  reference   : "800-53|AC-4,CSCv8|4.4,CIS-L1|3.3.1"
+  cmd         : "/sbin/sysctl net.ipv6.conf.all.accept_ra 2>/dev/null || echo 'net.ipv6.conf.all.accept_ra = 0'"
+  expect      : "^net\.ipv6\.conf\.all\.accept_ra\s*=\s*0"
+  severity    : MEDIUM
+</custom_item>
+
+# 4.12 Egzotik Protokoller (DCCP, SCTP, RDS, TIPC) Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4.12 DCCP, SCTP, RDS ve TIPC egzotik ag protokollerinin devre disi oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucularda kullanilmayan nadir protokol suruculerinin kapatilmasidir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'install dccp /bin/true' > /etc/modprobe.d/dccp.conf
+echo 'install sctp /bin/true' > /etc/modprobe.d/sctp.conf
+echo 'install rds /bin/true' > /etc/modprobe.d/rds.conf
+echo 'install tipc /bin/true' > /etc/modprobe.d/tipc.conf"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|3.4.1"
+  cmd         : "/sbin/modprobe -n -v dccp 2>&1"
+  expect      : "(install /bin/(true|false)|FATAL: Module dccp not found|cannot find module dccp)"
+  severity    : LOW
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 5: SUNUCUDA ASLA BULUNMAMASI GEREKEN GÜVENSİZ SERVİSLER
+# ==============================================================================
+# AYARIN AMACI: Linux sunucularda gereksiz açık kapı (dinleyen port) bırakan,
+# şifresiz iletişim kuran veya sunucu rolüne aykırı servislerin kaldırılmasıdır.
+# GÜVENLİK RİSKİ:
+# - CUPS: Yazdırma servisi sunucuda çalışmamalıdır; son yıllarda birçok uzaktan kod
+#   çalıştırma (RCE) zafiyeti CUPS üzerinden çıkmıştır.
+# - Avahi (mDNS): Ağda otomatik yayın yaparak sunucunun varlığını ve IP'sini ifşa eder.
+# - Telnet / RSH / NIS: Şifreleri açık metin iletir, MITM ile kolayca çalınır.
+# BULGU SEVİYESİ: KRİTİK / YÜKSEK
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 5.1 CUPS Yazdırma Servisi Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "5.1 CUPS (Yazdirma) servisinin devre disi ve kapali oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucularda yazici servisi bulunmamalidir.
+TEHLIKE: CUPS uzerindeki uzaktan kod calistirma (RCE) aciklarini tamamen bertaraf eder.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl stop cups 2>/dev/null && systemctl disable cups 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|2.2.4"
+  cmd         : "systemctl is-active cups 2>&1 || echo 'inactive'"
+  expect      : "(inactive|failed|could not be found)"
+  severity    : HIGH
+</custom_item>
+
+# 5.2 Avahi Daemon (mDNS/Zeroconf) Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "5.2 Avahi daemon (mDNS) servisinin devre disi oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucunun yerel aga otomatik hostname ve servis yayini yapmasini engeller.
+TEHLIKE: Saldirgana sunucunun kimligini ve rollerini ifsa etmeyi onler.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl stop avahi-daemon 2>/dev/null && systemctl disable avahi-daemon 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|2.2.3"
+  cmd         : "systemctl is-active avahi-daemon 2>&1 || echo 'inactive'"
+  expect      : "(inactive|failed|could not be found)"
+  severity    : MEDIUM
+</custom_item>
+
+# 5.3 xinetd / inetd Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "5.3 xinetd veya inetd super-server servisinin bulunmadigini dogrula"
+  info        : "AYARIN ANLAMI: Eski servislerin arka planda gizlice calistirilmasini engeller.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl stop xinetd 2>/dev/null && systemctl disable xinetd 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|2.1.1"
+  cmd         : "systemctl is-active xinetd 2>&1 || echo 'inactive'"
+  expect      : "(inactive|failed|could not be found)"
+  severity    : HIGH
+</custom_item>
+
+# 5.4 Telnet Sunucusu ve İstemcisi Yok
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "5.4 Telnet sunucu ve istemcisinin kurulu olmadigini dogrula"
+  info        : "AYARIN ANLAMI: Sifresiz metin aktaran telnet protokolunun tamamen kaldirilmasidir.
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "RHEL/CentOS: dnf remove telnet telnet-server
+Ubuntu/Debian: apt purge telnet telnetd"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|2.3.1"
+  cmd         : "which telnet 2>&1 || echo 'not found'"
+  expect      : "(no telnet in|not found)"
+  severity    : HIGH
+</custom_item>
+
+# 5.5 RSH Sunucusu ve İstemcisi Yok
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "5.5 RSH/Rlogin/Rcp paketlerinin kurulu olmadigini dogrula"
+  info        : "AYARIN ANLAMI: Eski guvensiz uzak komut calistirma istemcilerinin kaldirilmasidir.
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "RHEL: dnf remove rsh rsh-server
+Ubuntu: apt purge rsh-client rsh-redone-client"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|2.3.2"
+  cmd         : "which rsh 2>&1 || echo 'not found'"
+  expect      : "(no rsh in|not found)"
+  severity    : HIGH
+</custom_item>
+
+# 5.6 NIS (Network Information Service - ypbind) Yok
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "5.6 NIS (ypbind) servisinin kurulu ve aktif olmadigini dogrula"
+  info        : "AYARIN ANLAMI: Eski sifresiz ag kimlik dogrulama servisinin kullanililmamasidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl stop ypbind 2>/dev/null && systemctl disable ypbind 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|2.3.3"
+  cmd         : "systemctl is-active ypbind 2>&1 || echo 'inactive'"
+  expect      : "(inactive|failed|could not be found)"
+  severity    : HIGH
+</custom_item>
+
+# 5.7 TFTP Sunucusu Devre Dışı
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "5.7 TFTP sunucusunun kurulu veya aktif olmadigini dogrula"
+  info        : "AYARIN ANLAMI: Sifreleme ve kimlik dogrulama destegi olmayan dosya transfer servisinin kapatilmasidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl stop tftp 2>/dev/null && systemctl disable tftp 2>/dev/null"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|2.2.6"
+  cmd         : "systemctl is-active tftp 2>&1 || echo 'inactive'"
+  expect      : "(inactive|failed|could not be found)"
+  severity    : HIGH
+</custom_item>
+
+# 5.8 SNMP Varsayılan Topluluk Dizgileri ('public', 'private') Yok
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK_NOT
+  description : "5.8 SNMP: Varsayilan 'public' veya 'private' topluluk dizgilerinin kullanilmadigini dogrula"
+  info        : "AYARIN ANLAMI: SNMP servisinin fabrika cikisi tahmin edilebilir sifrelerle calismasini yasaklar.
+TEHLIKE: Saldirgan 'public' stringi ile sunucunun tum donanim ve ag yapisini haritalayabilir!
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "/etc/snmp/snmpd.conf icerisindeki 'public' ve 'private' satirlarini silin ve guclu SNMPv3 yapilandirin."
+  reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|2.2.14"
+  file        : "/etc/snmp/snmpd.conf"
+  regex       : "^\s*(rocommunity|rwcommunity)\s+"
+  expect      : "^\s*(rocommunity|rwcommunity)\s+(public|private)\b"
+  file_required : NO
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 6: SSH SUNUCU GÜVENLİK SIKILAŞTIRMASI (/etc/ssh/sshd_config)
+# ==============================================================================
+# AYARIN AMACI: Uzaktan yönetim için kullanılan SSH servisinin en katı güvenlik
+# parametreleriyle çalışmasını sağlamaktır.
+# GÜVENLİK RİSKİ: Linux sunuculara yapılan siber saldırıların %90'ından fazlası
+# SSH portuna brute-force veya zayıf anahtar/şifreleme denemeleriyle başlar.
+# BULGU SEVİYESİ: KRİTİK / YÜKSEK (Critical / High Severity)
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 6.1 PermitRootLogin no
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.1 SSH: PermitRootLogin ayarinin 'no' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: SSH ile dogrudan 'root' adiyla uzaktan oturum acilamaz.
+TEHLIKE: Saldirgan dogrudan root hesabina saldiramaz. Yonetici kisisel hesabini kullanip sonra sudo yapmalidir.
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sed -i 's/^#*PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && systemctl restart sshd || systemctl restart ssh"
+  reference   : "800-53|AC-6,CSCv8|4.1,CIS-L1|5.2.5"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*PermitRootLogin\s+"
+  expect      : "^\s*PermitRootLogin\s+no\b"
+  severity    : HIGH
+</custom_item>
+
+# 6.2 PermitEmptyPasswords no
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.2 SSH: PermitEmptyPasswords ayarinin 'no' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sifresi bos olan hesaplarin SSH ile girisini kesinlikle yasaklar.
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'PermitEmptyPasswords no' >> /etc/ssh/sshd_config && systemctl reload sshd || systemctl reload ssh"
+  reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|5.2.9"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*PermitEmptyPasswords\s+"
+  expect      : "^\s*PermitEmptyPasswords\s+no\b"
+  severity    : HIGH
+</custom_item>
+
+# 6.3 MaxAuthTries <= 4
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.3 SSH: MaxAuthTries degerinin 4 veya daha az oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Baglanti basina yanlis sifre deneme siniridir.
+TEHLIKE: Brute-force ve parola deneme saldirilarini engeller.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'MaxAuthTries 4' >> /etc/ssh/sshd_config"
+  reference   : "800-53|AC-7,CSCv8|5.2,CIS-L1|5.2.7"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*MaxAuthTries\s+"
+  expect      : "^\s*MaxAuthTries\s+([1-4])\b"
+  severity    : HIGH
+</custom_item>
+
+# 6.4 ClientAliveInterval <= 300
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.4 SSH: ClientAliveInterval degerinin 300 veya daha az oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Bosta birakilan SSH oturumlarinin 5 dakikada bir kontrol edilmesidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'ClientAliveInterval 300' >> /etc/ssh/sshd_config && echo 'ClientAliveCountMax 3' >> /etc/ssh/sshd_config"
+  reference   : "800-53|AC-12,CSCv8|4.1,CIS-L1|5.2.12"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*ClientAliveInterval\s+"
+  expect      : "^\s*ClientAliveInterval\s+([1-9]|[1-9][0-9]|[1-2][0-9][0-9]|300)\b"
+  severity    : MEDIUM
+</custom_item>
+
+# 6.5 HostbasedAuthentication no
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.5 SSH: HostbasedAuthentication ayarinin 'no' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: IP tabanli eski guvensiz giris mekanizmasini kapatir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'HostbasedAuthentication no' >> /etc/ssh/sshd_config"
+  reference   : "800-53|IA-2,CSCv8|5.2,CIS-L1|5.2.8"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*HostbasedAuthentication\s+"
+  expect      : "^\s*HostbasedAuthentication\s+no\b"
+  severity    : MEDIUM
+</custom_item>
+
+# 6.6 X11Forwarding no
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.6 SSH: X11Forwarding ayarinin 'no' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: SSH uzerinden grafik arayuz iletimini kapatir (Sunucularda GUI gereksizdir).
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'X11Forwarding no' >> /etc/ssh/sshd_config"
+  reference   : "800-53|AC-3,CSCv8|4.1,CIS-L1|5.2.6"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*X11Forwarding\s+"
+  expect      : "^\s*X11Forwarding\s+no\b"
+  severity    : MEDIUM
+</custom_item>
+
+# 6.7 IgnoreRhosts yes
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.7 SSH: IgnoreRhosts ayarinin 'yes' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Guvensiz rhosts dosyalarinin yoksayilmasidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'IgnoreRhosts yes' >> /etc/ssh/sshd_config"
+  reference   : "800-53|AC-3,CSCv8|5.2,CIS-L1|5.2.3"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*IgnoreRhosts\s+"
+  expect      : "^\s*IgnoreRhosts\s+yes\b"
+  severity    : HIGH
+</custom_item>
+
+# 6.8 LoginGraceTime <= 60
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.8 SSH: LoginGraceTime ayarinin 60 veya daha az oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sifre girisi icin taninan maksimum bekleme suresidir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'LoginGraceTime 60' >> /etc/ssh/sshd_config"
+  reference   : "800-53|AC-12,CSCv8|4.1,CIS-L1|5.2.13"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*LoginGraceTime\s+"
+  expect      : "^\s*LoginGraceTime\s+([1-5]?[0-9]|60)\b"
+  severity    : LOW
+</custom_item>
+
+# 6.9 Banner /etc/issue.net
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.9 SSH: Banner ayarinin '/etc/issue.net' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Baglanan kullaniciya yasal uyari bannerinin gosterilmesidir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'Banner /etc/issue.net' >> /etc/ssh/sshd_config"
+  reference   : "800-53|AC-8,CSCv8|5.1,CIS-L1|5.2.14"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*Banner\s+"
+  expect      : "^\s*Banner\s+/etc/issue\.net\b"
+  severity    : LOW
+</custom_item>
+
+# 6.10 MaxSessions <= 4
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.10 SSH: MaxSessions degerinin 4 veya daha az oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Bir baglanti uzerinden acilabilecek coklu kabuk oturumu siniridir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'MaxSessions 4' >> /etc/ssh/sshd_config"
+  reference   : "800-53|AC-10,CSCv8|4.1,CIS-L1|5.2.15"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*MaxSessions\s+"
+  expect      : "^\s*MaxSessions\s+([1-4])\b"
+  severity    : MEDIUM
+</custom_item>
+
+# 6.11 PermitUserEnvironment no
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "6.11 SSH: PermitUserEnvironment ayarinin 'no' oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Kullanicilarin ~/.ssh/environment dosyasi uzerinden ortam degiskeni yuklemesini yasaklar.
+TEHLIKE: LD_PRELOAD ve benzeri yontemlerle yetki yukseltme riskini tamamen onler.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'PermitUserEnvironment no' >> /etc/ssh/sshd_config"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.2.16"
+  file        : "/etc/ssh/sshd_config"
+  regex       : "^\s*PermitUserEnvironment\s+"
+  expect      : "^\s*PermitUserEnvironment\s+no\b"
+  severity    : HIGH
+</custom_item>
+
+# 6.12 sshd_config Dosya İzni 600
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "6.12 SSH: /etc/ssh/sshd_config dosya izninin 600 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: SSH konfigurasini sadece root okuyup yazabilir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 600 /etc/ssh/sshd_config && chown root:root /etc/ssh/sshd_config"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.2.1"
+  file        : "/etc/ssh/sshd_config"
+  owner       : "root"
+  mask        : "177"
+  severity    : HIGH
+</custom_item>
+
+# 6.13 SSH Özel Anahtarları (Private Host Keys) İzinleri 600
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "6.13 SSH: Ozel anahtar (private key) dosyalarinin 600 veya 640 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucunun SSH private anahtarlarini baskasi okuyamaz.
+TEHLIKE: Private key sizarsa sunucunun trafigi cozulur ve sahte sunucu taklidi yapilabilir!
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 600 /etc/ssh/*_key"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.2.2"
+  cmd         : "find /etc/ssh -name '*_key' -perm /077 2>/dev/null"
+  expect      : "^$"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 7: PAROLA POLİTİKASI, PAM VE KULLANICI HESAPLARI
+# ==============================================================================
+# AYARIN AMACI: Parola yaşlandırma sürelerinin sınırlandırılması, boş parolaların
+# engellenmesi, güçlü parola karma algoritmaları (SHA512/yescrypt) ve hatalı girişte
+# hesap kilitlemenin (pam_faillock) uygulanmasıdır.
+# BULGU SEVİYESİ: KRİTİK / YÜKSEK
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 7.1 PASS_MAX_DAYS <= 365
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "7.1 /etc/login.defs icinde PASS_MAX_DAYS degerinin 365 veya daha az oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Parolalarin en fazla 1 yil gecerli olmasidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS 365/' /etc/login.defs"
+  reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|5.4.1.1"
+  file        : "/etc/login.defs"
+  regex       : "^\s*PASS_MAX_DAYS\s+"
+  expect      : "^\s*PASS_MAX_DAYS\s+([1-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-5][0-9]|365)\b"
+  severity    : MEDIUM
+</custom_item>
+
+# 7.2 PASS_MIN_DAYS >= 1
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "7.2 /etc/login.defs icinde PASS_MIN_DAYS degerinin en az 1 gun oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Ayni gun ust uste parola degistirilip eski sifreye donulmesini engeller.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS 1/' /etc/login.defs"
+  reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|5.4.1.2"
+  file        : "/etc/login.defs"
+  regex       : "^\s*PASS_MIN_DAYS\s+"
+  expect      : "^\s*PASS_MIN_DAYS\s+([1-9]|[1-9][0-9]+)\b"
+  severity    : LOW
+</custom_item>
+
+# 7.3 PASS_WARN_AGE >= 7
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "7.3 /etc/login.defs icinde PASS_WARN_AGE degerinin en az 7 gun oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Parola dolmadan 7 gun once hatirlatma yapilmasidir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "sed -i 's/^PASS_WARN_AGE.*/PASS_WARN_AGE 7/' /etc/login.defs"
+  reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|5.4.1.3"
+  file        : "/etc/login.defs"
+  regex       : "^\s*PASS_WARN_AGE\s+"
+  expect      : "^\s*PASS_WARN_AGE\s+([7-9]|[1-9][0-9]+)\b"
+  severity    : LOW
+</custom_item>
+
+# 7.4 /etc/shadow Boş Parolalı Hesap Yok
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "7.4 /etc/shadow dosyasinda bos parolali hesap bulunmadigini dogrula"
+  info        : "AYARIN ANLAMI: Parolasiz hesap bulunmamasidir.
+TEHLIKE: Sifresiz oturum acilmasina neden olan en buyuk guvenlik acigidir!
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "awk -F: '($2 == "") {print $1}' /etc/shadow | xargs -r -n 1 passwd -l"
+  reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|5.4.2"
+  cmd         : "awk -F: '($2 == "") {print $1}' /etc/shadow"
+  expect      : "^$"
+  severity    : HIGH
+</custom_item>
+
+# 7.5 Sadece root UID 0
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "7.5 /etc/passwd icinde yalnizca 'root' kullanicisinin UID 0 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sistemde gizli ikinci bir superuser (UID 0) hesabi bulunamaz.
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "UID 0 olan diger hesaplari silin veya UID degistirin: awk -F: '($3 == 0 && $1 != "root") {print $1}' /etc/passwd"
+  reference   : "800-53|AC-6,CSCv8|5.4,CIS-L1|5.4.3"
+  cmd         : "awk -F: '($3 == 0) {print $1}' /etc/passwd"
+  expect      : "^root$"
+  severity    : HIGH
+</custom_item>
+
+# 7.6 Varsayılan Umask 027
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "7.6 /etc/profile veya /etc/bashrc icinde varsayilan umask degerinin 027 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Yeni olusturulan dosyalarin diger kullanicilara kapali olmasidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'umask 027' >> /etc/profile && echo 'umask 027' >> /etc/bashrc"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.4.4"
+  file        : "/etc/profile"
+  regex       : "^\s*umask\s+"
+  expect      : "^\s*umask\s+027\b"
+  severity    : MEDIUM
+</custom_item>
+
+# 7.7 Shell Zaman Aşımı (TMOUT <= 900 Saniye / 15 Dakika)
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "7.7 TMOUT oturum zaman asiminin 900 saniye (15 dk) veya daha az oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Bosta birakilan konsol ve SSH terminallerinin otomatik kapatilmasidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'readonly TMOUT=900; export TMOUT' >> /etc/profile.d/timeout.sh"
+  reference   : "800-53|AC-12,CSCv8|4.1,CIS-L1|5.4.5"
+  file        : "/etc/profile"
+  regex       : "^\s*(typeset\s+-r\s+)?TMOUT="
+  expect      : "^\s*(typeset\s+-r\s+)?TMOUT=([1-9]|[1-9][0-9]|[1-8][0-9][0-9]|900)\b"
+  severity    : MEDIUM
+</custom_item>
+
+# 7.8 İnaktif Hesapların Kilitlenmesi (useradd -D -f 30)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "7.8 Parolasi dolduktan sonra inaktif kalan hesaplarin 30 gun icinde kilitlendigini dogrula"
+  info        : "AYARIN ANLAMI: Parolasi bittigi halde yenilenmeyen hesaplarin otomatik kilitlenmesidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "useradd -D -f 30"
+  reference   : "800-53|AC-2,CSCv8|5.3,CIS-L1|5.4.1.4"
+  cmd         : "useradd -D | grep INACTIVE"
+  expect      : "^INACTIVE=([1-9]|[1-2][0-9]|30)$"
+  severity    : MEDIUM
+</custom_item>
+
+# 7.9 Sistem Servis Hesaplarının Kabukları (nologin)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "7.9 Sistem servis hesaplarinin (UID < 1000) giris kabugunun nologin oldugunu dogrula"
+  info        : "AYARIN ANLAMI: daemon, bin, sys, nobody gibi hesaplarin interaktif kabuk (bash/sh) acamamasidir.
+TEHLIKE: Web zafiyetiyle bu hesaplar ele gecirilirse interaktif shell alinmasi zorlasir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "usermod -s /sbin/nologin <hesap_adi>"
+  reference   : "800-53|AC-2,CSCv8|5.4,CIS-L1|5.4.2"
+  cmd         : "awk -F: '($1 != "root" && $1 != "sync" && $1 != "shutdown" && $1 != "halt" && $3 < 1000 && $7 !~ /(nologin|false)/) {print $1}' /etc/passwd"
+  expect      : "^$"
+  severity    : HIGH
+</custom_item>
+
+# 7.10 su Komutuna Erişimin Kısıtlanması (pam_wheel.so)
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "7.10 su komutuna erisimin yalnizca wheel/sudo grubuna kisitlandigini dogrula"
+  info        : "AYARIN ANLAMI: Yoldan gecen normal bir kullanicinin root sifresini bilse dahi 'su -' komutuyla root olamamasi, sadece wheel grubundakilerin su yapabilmesidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "/etc/pam.d/su dosyasinda su satiri aktif edin: auth required pam_wheel.so use_uid"
+  reference   : "800-53|AC-3,CSCv8|5.4,CIS-L1|5.6"
+  file        : "/etc/pam.d/su"
+  regex       : "^\s*auth\s+required\s+pam_wheel\.so\s+"
+  expect      : "^\s*auth\s+required\s+pam_wheel\.so\s+.*use_uid"
+  severity    : HIGH
+</custom_item>
+
+# 7.11 Sudo Komut Logunun Yapılandırılması (logfile=/var/log/sudo.log)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "7.11 sudo islemlerinin ozel bir log dosyasina kaydedildigini dogrula"
+  info        : "AYARIN ANLAMI: Yoneticilerin calistirdigi tum sudo komutlarinin /var/log/sudo.log icine yazilmasidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo 'Defaults logfile="/var/log/sudo.log"' > /etc/sudoers.d/audit_sudo"
+  reference   : "800-53|AU-2,CSCv8|8.5,CIS-L1|5.3.3"
+  cmd         : "grep -rEi 'logfile\s*=' /etc/sudoers /etc/sudoers.d/ 2>/dev/null"
+  expect      : "logfile="
+  severity    : MEDIUM
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 8: KRİTİK SİSTEM DOSYA İZİNLERİ VE BÜTÜNLÜK
+# ==============================================================================
+# AYARIN AMACI: /etc/passwd, /etc/shadow, /etc/group ve yedeklerinin izinlerinin
+# en katı şekilde kilitlenmesi, sistemde sahipsiz veya world-writable dosya bulunmamasıdır.
+# GÜVENLİK RİSKİ: Bu dosyalardaki tek bir izin hatası tüm sunucunun saniyeler içinde
+# yetkisiz kişilerin kontrolüne geçmesine yol açar!
+# BULGU SEVİYESİ: KRİTİK (Critical Severity)
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 8.1 /etc/passwd İzni 644
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "8.1 /etc/passwd dosya izninin 644 ve sahibinin root:root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Kullanici listesini herkes okur, yalnizca root degistirebilir.
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 644 /etc/passwd && chown root:root /etc/passwd"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.2"
+  file        : "/etc/passwd"
+  owner       : "root"
+  group       : "root"
+  mode        : "644"
+  severity    : HIGH
+</custom_item>
+
+# 8.2 /etc/shadow İzni 000 veya 640
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "8.2 /etc/shadow dosya izninin 000 veya 640 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Parola hashleri normal kullanicilar tarafindan okunamaz.
+TEHLIKE: Dosya okunursa saldirgan tum sifreleri kirabilir!
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 0000 /etc/shadow || chmod 0640 /etc/shadow"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.3"
+  file        : "/etc/shadow"
+  mask        : "137"
+  severity    : HIGH
+</custom_item>
+
+# 8.3 /etc/group İzni 644
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "8.3 /etc/group dosya izninin 644 ve sahibinin root:root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Grup listesini sadece root degistirebilir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 644 /etc/group && chown root:root /etc/group"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.4"
+  file        : "/etc/group"
+  owner       : "root"
+  group       : "root"
+  mode        : "644"
+  severity    : HIGH
+</custom_item>
+
+# 8.4 /etc/gshadow İzni 000 veya 640
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "8.4 /etc/gshadow dosya izninin 000 veya 640 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Grup parola ozetlerini korur.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 0000 /etc/gshadow || chmod 0640 /etc/gshadow"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.5"
+  file        : "/etc/gshadow"
+  mask        : "137"
+  severity    : HIGH
+</custom_item>
+
+# 8.5 /etc/passwd- Yedek Dosya İzni 644 veya 600
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "8.5 /etc/passwd- yedek dosyasinin izninin 644 veya 600 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Kullanici yedek dosyasini sadece root degistirebilir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 644 /etc/passwd- && chown root:root /etc/passwd-"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.6"
+  file        : "/etc/passwd-"
+  owner       : "root"
+  mask        : "133"
+  severity    : MEDIUM
+</custom_item>
+
+# 8.6 /etc/shadow- Yedek Dosya İzni 000 veya 600
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "8.6 /etc/shadow- yedek dosyasinin izninin 000 veya 600 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Eski parola hashlerinin yedek dosyasini kimse okuyamaz.
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 0000 /etc/shadow- || chmod 0600 /etc/shadow-"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.7"
+  file        : "/etc/shadow-"
+  mask        : "177"
+  severity    : HIGH
+</custom_item>
+
+# 8.7 Sahipsiz (Unowned) Dosyalar Yok
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "8.7 Sistemde sahipsiz (gecersiz UID/GID) dosya bulunmadigini dogrula"
+  info        : "AYARIN ANLAMI: Silinmis kullaniciya ait sahipsiz kalmis dosyalarin olmamasidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "find /bin /sbin /usr /etc -xdev \( -nouser -o -nogroup \) -exec chown root:root {} +"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.11"
+  cmd         : "find /bin /sbin /usr /etc -xdev \( -nouser -o -nogroup \) 2>/dev/null"
+  expect      : "^$"
+  severity    : MEDIUM
+</custom_item>
+
+# 8.8 Herkese Yazılabilir (World-Writable) Dosyalar Yok
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "8.8 Sistem dizinlerinde herkese yazma yetkili dosya bulunmadigini dogrula"
+  info        : "AYARIN ANLAMI: Sistem komut dizinlerinde herhangi bir kullanicinin degistirebilecegi dosya olmamalidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod o-w <dosya_adi>"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.10"
+  cmd         : "find /etc /usr/bin /usr/sbin -xdev -type f -perm -0002 2>/dev/null"
+  expect      : "^$"
+  severity    : HIGH
+</custom_item>
+
+# 8.9 Root PATH Güvenliği
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "8.9 Root kullanicisinin PATH degiskeninde '.' veya bosluk bulunmadigini dogrula"
+  info        : "AYARIN ANLAMI: Root komut arama yolunda gecerli dizin '.' bulunamaz.
+TEHLIKE: /tmp altina konulan sahte 'ls' scriptinin root tarafindan kazara calistirilmasini onler!
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "Root PATH tanimindan '.' ve '::' ifadelerini kaldirin."
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.2.4"
+  cmd         : "echo $PATH | grep -E '(::|^:|:$|:\.:)'"
+  expect      : "^$"
+  severity    : HIGH
+</custom_item>
+
+# 8.10 Kullanıcı Ev Dizinleri İzinleri (0750 veya 0700)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "8.10 Kullanici ev dizinlerinin baskalari tarafindan yazilamaz oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Bir kullanici baska bir kullanicinin ev dizinine dosya yazamaz.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 750 /home/*"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.2.1"
+  cmd         : "awk -F: '($3 >= 1000 && $1 != "nobody") {print $6}' /etc/passwd | while read dir; do [ -d "$dir" ] && ls -ld "$dir"; done | awk '$1 ~ /..w$/ {print $9}'"
+  expect      : "^$"
+  severity    : HIGH
+</custom_item>
+
+# 8.11 Kullanıcıların ~/.netrc Dosyalarının Olmaması
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "8.11 Kullanici ev dizinlerinde acik metin parola iceren .netrc dosyasi olmadigini dogrula"
+  info        : "AYARIN ANLAMI: .netrc dosyalari FTP vb. sistemler icin duz metin parola tutar. Bulunmamalidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "rm -f /home/*/.netrc"
+  reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|6.2.12"
+  cmd         : "find /home -name '.netrc' 2>/dev/null"
+  expect      : "^$"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 9: ZAMANLANMIŞ GÖREVLER (CRON & AT GÜVENLİĞİ)
+# ==============================================================================
+# AYARIN AMACI: Arka planda periyodik çalışan görev dosyalarının sadece root
+# tarafından yönetilebilmesini sağlamaktır.
+# GÜVENLİK RİSKİ: Bir saldırgan cron tablolarına yazma hakkı kazanırsa, dakikalar
+# içinde root yetkisiyle ters bağlantı (reverse shell) açar!
+# BULGU SEVİYESİ: YÜKSEK (High Severity)
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 9.1 cron / crond Servisinin Aktif Olması
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "9.1 crond veya cron servisinin aktif ve calisir oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Periyodik guvenlik gorevleri, log rotasyonlari ve temizlik icin cron aktif olmalidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl enable crond || systemctl enable cron"
+  reference   : "800-53|CM-7,CSCv8|4.1,CIS-L1|5.1.1"
+  cmd         : "systemctl is-active crond 2>&1 || systemctl is-active cron 2>&1"
+  expect      : "^active$"
+  severity    : MEDIUM
+</custom_item>
+
+# 9.2 /etc/crontab İzni 600
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "9.2 /etc/crontab dosya izninin 600 ve sahibinin root:root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Ana cron dosyasini yalnizca root okuyup yazabilir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 600 /etc/crontab && chown root:root /etc/crontab"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.1.2"
+  file        : "/etc/crontab"
+  owner       : "root"
+  group       : "root"
+  mask        : "177"
+  severity    : HIGH
+</custom_item>
+
+# 9.3 /etc/cron.hourly İzni 700
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "9.3 /etc/cron.hourly dizin izninin 700 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Saatlik calisan gorev dizini sadece root kontrolundedir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 700 /etc/cron.hourly && chown root:root /etc/cron.hourly"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.1.3"
+  file        : "/etc/cron.hourly"
+  owner       : "root"
+  group       : "root"
+  mask        : "077"
+  file_type   : "d"
+  severity    : HIGH
+</custom_item>
+
+# 9.4 /etc/cron.daily İzni 700
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "9.4 /etc/cron.daily dizin izninin 700 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Gunluk calisan gorev dizini sadece root kontrolundedir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 700 /etc/cron.daily && chown root:root /etc/cron.daily"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.1.4"
+  file        : "/etc/cron.daily"
+  owner       : "root"
+  group       : "root"
+  mask        : "077"
+  file_type   : "d"
+  severity    : HIGH
+</custom_item>
+
+# 9.5 /etc/cron.weekly İzni 700
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "9.5 /etc/cron.weekly dizin izninin 700 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Haftalik calisan gorev dizini sadece root kontrolundedir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 700 /etc/cron.weekly && chown root:root /etc/cron.weekly"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.1.5"
+  file        : "/etc/cron.weekly"
+  owner       : "root"
+  group       : "root"
+  mask        : "077"
+  file_type   : "d"
+  severity    : HIGH
+</custom_item>
+
+# 9.6 /etc/cron.monthly İzni 700
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "9.6 /etc/cron.monthly dizin izninin 700 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Aylik calisan gorev dizini sadece root kontrolundedir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 700 /etc/cron.monthly && chown root:root /etc/cron.monthly"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.1.6"
+  file        : "/etc/cron.monthly"
+  owner       : "root"
+  group       : "root"
+  mask        : "077"
+  file_type   : "d"
+  severity    : HIGH
+</custom_item>
+
+# 9.7 /etc/cron.d İzni 700
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "9.7 /etc/cron.d dizin izninin 700 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Ek uygulama gorevlerinin bulundugu dizin sadece root tarafindan yazilabilir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 700 /etc/cron.d && chown root:root /etc/cron.d"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|5.1.7"
+  file        : "/etc/cron.d"
+  owner       : "root"
+  group       : "root"
+  mask        : "077"
+  file_type   : "d"
+  severity    : HIGH
+</custom_item>
+
+# 9.8 at.allow İzni 600
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "9.8 /etc/at.allow dosyasinin bulundugunu ve izninin 600 oldugunu dogrula"
+  info        : "AYARIN ANLAMI: 'at' gorev yoneticisini sadece listedeki kullanicilar calistirabilir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "touch /etc/at.allow && chmod 600 /etc/at.allow && chown root:root /etc/at.allow && rm -f /etc/at.deny"
+  reference   : "800-53|AC-3,CSCv8|4.1,CIS-L1|5.1.9"
+  file        : "/etc/at.allow"
+  owner       : "root"
+  mask        : "177"
+  file_required : NO
+  severity    : MEDIUM
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 10: LOGLAMA VE SİSTEM DENETİMİ (AUDITD & RSYSLOG)
+# ==============================================================================
+# AYARIN AMACI: Linux Denetim Çerçevesi (auditd) ile saat değişimleri, kullanıcı
+# yönetimi, dosya izin değişiklikleri ve ayrıcalıklı komut çalıştırmalarının
+# kaydedilmesi ve rsyslog/journald ile log güvenliğinin sağlanmasıdır.
+# GÜVENLİK RİSKİ: Bir siber olayda saldırganın izini sürebilmek (adli bilişim / forensics)
+# ve tespit edebilmek için bu denetim kuralları zorunludur.
+# BULGU SEVİYESİ: YÜKSEK / ORTA
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 10.1 auditd Servisi Aktif
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "10.1 auditd denetim servisinin aktif ve calisir oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Kernel seviyesinde guvenlik olaylarini izleyen auditd servisinin acik olmasidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl enable auditd && systemctl start auditd"
+  reference   : "800-53|AU-12,CSCv8|8.5,CIS-L1|4.1.1.1"
+  cmd         : "systemctl is-enabled auditd 2>&1"
+  expect      : "^enabled$"
+  severity    : HIGH
+</custom_item>
+
+# 10.2 rsyslog / journald Aktif
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "10.2 rsyslog veya journald log servisinin calistigini dogrula"
+  info        : "AYARIN ANLAMI: Sistem loglarinin diske ve merkezi SIEM'e aktarilmasini saglar.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl enable rsyslog && systemctl start rsyslog"
+  reference   : "800-53|AU-12,CSCv8|8.2,CIS-L1|4.2.1.1"
+  cmd         : "systemctl is-active rsyslog 2>&1 || systemctl is-active systemd-journald 2>&1"
+  expect      : "^active$"
+  severity    : HIGH
+</custom_item>
+
+# 10.3 Saat/Tarih Değişikliklerinin Denetlenmesi (time-change)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "10.3 auditd: Sistem saati ve tarih degisikliklerinin denetlendigini dogrula"
+  info        : "AYARIN ANLAMI: Sistem saatini degistiren adjtimex, settimeofday sistem cagrilarinin loglanmasidir.
+TEHLIKE: Saldirganin log tarihlerini karistirarak adli bilisimi engellemesini onler.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo '-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change' >> /etc/audit/rules.d/audit.rules"
+  reference   : "800-53|AU-12,CSCv8|8.5,CIS-L1|4.1.3"
+  cmd         : "/sbin/auditctl -l | grep -E '(adjtimex|settimeofday)'"
+  expect      : "time-change"
+  severity    : MEDIUM
+</custom_item>
+
+# 10.4 Kullanıcı ve Grup Dosyası Değişikliklerinin Denetlenmesi (identity)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "10.4 auditd: /etc/passwd ve /etc/shadow degisikliklerinin denetlendigini dogrula"
+  info        : "AYARIN ANLAMI: Kullanici ve grup dosyalarina yapilan her turlu yazma/degistirme isleminin loglanmasidir.
+TEHLIKE: Yetkisiz kullanici ekleme veya parola degistirme girisimlerini aninda yakalar.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo '-w /etc/passwd -p wa -k identity' >> /etc/audit/rules.d/audit.rules
+echo '-w /etc/shadow -p wa -k identity' >> /etc/audit/rules.d/audit.rules"
+  reference   : "800-53|AU-12,CSCv8|8.5,CIS-L1|4.1.4"
+  cmd         : "/sbin/auditctl -l | grep identity"
+  expect      : "identity"
+  severity    : HIGH
+</custom_item>
+
+# 10.5 Sudoers Dosyası Değişikliklerinin Denetlenmesi (scope)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "10.5 auditd: /etc/sudoers degisikliklerinin denetlendigini dogrula"
+  info        : "AYARIN ANLAMI: Yetki yonetim dosyasina yapilan her mudahalenin denetlenmesidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo '-w /etc/sudoers -p wa -k scope' >> /etc/audit/rules.d/audit.rules
+echo '-w /etc/sudoers.d/ -p wa -k scope' >> /etc/audit/rules.d/audit.rules"
+  reference   : "800-53|AU-12,CSCv8|8.5,CIS-L1|4.1.12"
+  cmd         : "/sbin/auditctl -l | grep scope"
+  expect      : "scope"
+  severity    : HIGH
+</custom_item>
+
+# 10.6 Kernel Modülü Yükleme/Kaldırma Denetimi (modules)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "10.6 auditd: Kernel modul yukleme ve kaldirma islemlerinin denetlendigini dogrula"
+  info        : "AYARIN ANLAMI: init_module veya delete_module ile rootkit yukleme girisimlerini loglar.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo '-a always,exit -F arch=b64 -S init_module -S delete_module -k modules' >> /etc/audit/rules.d/audit.rules"
+  reference   : "800-53|AU-12,CSCv8|8.5,CIS-L1|4.1.15"
+  cmd         : "/sbin/auditctl -l | grep modules"
+  expect      : "modules"
+  severity    : HIGH
+</custom_item>
+
+# 10.7 auditd Kurallarının Değiştirilemez Yapılması (-e 2)
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK
+  description : "10.7 auditd kurallarinin '-e 2' ile degistirilemez yapildigini dogrula"
+  info        : "AYARIN ANLAMI: Sistem acildiktan sonra root kullanicisi dahil kimse auditd kurallarini silemez. Degisiklik icin sunucunun yeniden baslatilmasi gerekir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "echo '-e 2' >> /etc/audit/rules.d/audit.rules"
+  reference   : "800-53|AU-12,CSCv8|8.5,CIS-L1|4.1.17"
+  file        : "/etc/audit/rules.d/audit.rules"
+  regex       : "^\s*-e\s+"
+  expect      : "^\s*-e\s+2\b"
+  file_required : NO
+  severity    : MEDIUM
+</custom_item>
+
+# 10.8 Log Dosyaları İzinleri (0640 veya daha sıkı)
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "10.8 /var/log altindaki log dosyalarinin izinlerinin 640 veya daha siki oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sistem loglarini yalnizca root ve log/adm grubu gorebilir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod g-wx,o-rwx /var/log/* 2>/dev/null"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|4.2.3"
+  cmd         : "find /var/log -type f -perm /037 2>/dev/null | head -n 10"
+  expect      : "^$"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 11: ZAMAN SENKRONİZASYONU (CHRONY VEYA TIMESYNCD)
+# ==============================================================================
+# AYARIN AMACI: Tüm sunucuların saatlerinin kurumsal bir NTP/Chrony kaynağı ile
+# milisaniye hassasiyetinde senkronize olmasıdır.
+# GÜVENLİK RİSKİ: Saatleri kayan sunucularda SIEM korelasyonu çöker, Kerberos
+# oturumları düşer, SSL/TLS sertifika kontrolleri patlar ve adli tahlil yapılamaz.
+# BULGU SEVİYESİ: ORTA (Medium Severity)
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "11.1 Zaman senkronizasyon servisinin (chrony, timesyncd veya ntp) calistigini dogrula"
+  info        : "AYARIN ANLAMI: Sistem saatinin guvenilir ag saatiyle guncel kalmasidir.
+BULGU SEVIYESI: ORTA (Medium)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "systemctl enable chronyd && systemctl start chronyd || systemctl enable systemd-timesyncd"
+  reference   : "800-53|AU-8,CSCv8|8.4,CIS-L1|2.1.1"
+  cmd         : "systemctl is-active chronyd 2>&1 || systemctl is-active systemd-timesyncd 2>&1 || systemctl is-active ntpd 2>&1"
+  expect      : "^active$"
+  severity    : MEDIUM
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 12: GİRİŞ UYARI BANNERLARI VE BİLGİ SIZINTISI ENGELLEME
+# ==============================================================================
+# AYARIN AMACI: /etc/issue, /etc/issue.net ve /etc/motd dosyalarından işletim sistemi
+# çekirdek ve patch sürümü gibi saldırganın işine yarayacak bilgilerin silinmesi,
+# yerine kurumsal yasal uyarı konulmasıdır.
+# BULGU SEVİYESİ: DÜŞÜK (Low Severity)
+# KAPSAM: Tüm Linux Sunucuları
+# ==============================================================================
+
+# 12.1 /etc/motd İzni 644
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "12.1 /etc/motd dosya izninin 644 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Gunun mesaji dosyasinin guvenligidir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 644 /etc/motd && chown root:root /etc/motd"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.7.1"
+  file        : "/etc/motd"
+  owner       : "root"
+  group       : "root"
+  mode        : "644"
+  file_required : NO
+  severity    : LOW
+</custom_item>
+
+# 12.2 /etc/issue İzni 644
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "12.2 /etc/issue dosya izninin 644 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Konsol giris banner dosyasinin sadece root tarafindan yazilabilmesidir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 644 /etc/issue && chown root:root /etc/issue"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.7.2"
+  file        : "/etc/issue"
+  owner       : "root"
+  group       : "root"
+  mode        : "644"
+  severity    : LOW
+</custom_item>
+
+# 12.3 /etc/issue.net İzni 644
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CHECK
+  description : "12.3 /etc/issue.net dosya izninin 644 ve sahibinin root oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Uzak ag (SSH) giris banner dosyasinin guvenligidir.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "chmod 644 /etc/issue.net && chown root:root /etc/issue.net"
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.7.3"
+  file        : "/etc/issue.net"
+  owner       : "root"
+  group       : "root"
+  mode        : "644"
+  severity    : LOW
+</custom_item>
+
+# 12.4 Banner İçinde OS Sürüm Bilgisi Yok
+<custom_item>
+  system      : "Linux"
+  type        : FILE_CONTENT_CHECK_NOT
+  description : "12.4 /etc/issue dosyasinda OS surum kacis dizisi (\\v, \\r, \\m) olmadigini dogrula"
+  info        : "AYARIN ANLAMI: Giris bannerinda isletim sistemi surumu ifsa edilmez.
+BULGU SEVIYESI: DUSUK (Low)
+KAPSAM: Tum Linux Sunuculari"
+  solution    : "/etc/issue ve /etc/issue.net icerisindeki \\v, \\r, \\m, \\s ifadelerini silin."
+  reference   : "800-53|AC-8,CSCv8|5.1,CIS-L1|1.7.4"
+  file        : "/etc/issue"
+  regex       : "(\\v|\\r|\\m|\\s)"
+  expect      : "(\\v|\\r|\\m|\\s)"
+  severity    : LOW
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 13: DAĞITIMA ÖZEL DİNAMİK KOŞULLU BLOKLAR (<if><condition>)
+# ==============================================================================
+# AYARIN ANLAMI: Nessus hedef makinenin /etc/os-release dosyasındaki kimliğine bakar:
+# - RHEL / CentOS / Rocky / Oracle Linux ise: SELinux ve firewalld kontrol edilir.
+# - Debian / Ubuntu ise: AppArmor ve UFW kontrol edilir.
+# - SUSE / SLES_SAP ise: SUSE guvenlik modulleri kontrol edilir.
+# Hedef sisteme uymayan blok otomatik olarak SKIPPED gecilir, taramada asla hata vermez!
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 13.1 RED HAT AİLESİ (RHEL 7/8/9, Rocky Linux 8/9, CentOS 6/7, Oracle Linux 7/8/9)
+# ------------------------------------------------------------------------------
+<if>
+  <condition type:"AND">
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "Sistemin Red Hat ailesi (RHEL/CentOS/Rocky/Oracle) olup olmadigini tespit et"
+      cmd         : "grep -Ei 'rhel|centos|rocky|ol|red hat|fedora' /etc/os-release 2>/dev/null"
+      expect      : "ID="
+    </custom_item>
+  </condition>
+  <then>
+    # 13.1.1 SELinux Durumu Enforcing
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "13.1.1 Red Hat Ailesi: SELinux durumunun 'Enforcing' oldugunu dogrula"
+      info        : "AYARIN ANLAMI: Zorunlu Erisim Kontrolu (SELinux) korumasinin devrede olmasidir.
+TEHLIKE: SELinux kapaliysa sisteme sizan bir saldirgan web uygulamasindan root yetkisine cok rahat ulasabilir!
+BULGU SEVIYESI: KRITIK (Critical)
+KAPSAM: RHEL 7/8/9, Rocky 8/9, CentOS 6/7, Oracle Linux 7/8/9"
+      solution    : "/etc/selinux/config dosyasinda SELINUX=enforcing yapin ve 'setenforce 1' calistirin."
+      reference   : "800-53|AC-3,CSCv8|3.3,CIS-L1|1.6.1.2"
+      cmd         : "/usr/sbin/getenforce 2>&1"
+      expect      : "^Enforcing$"
+      severity    : HIGH
+    </custom_item>
+
+    # 13.1.2 SELinux Yapılandırma Dosyası
+    <custom_item>
+      system      : "Linux"
+      type        : FILE_CONTENT_CHECK
+      description : "13.1.2 Red Hat Ailesi: /etc/selinux/config icinde SELINUX=enforcing oldugunu dogrula"
+      info        : "AYARIN ANLAMI: Yeniden baslatmada SELinux'un kalici olarak enforcing kalmasini saglar.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: RHEL 7/8/9, Rocky 8/9, CentOS 7, Oracle Linux 7/8/9"
+      solution    : "sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config"
+      reference   : "800-53|AC-3,CSCv8|3.3,CIS-L1|1.6.1.3"
+      file        : "/etc/selinux/config"
+      regex       : "^\s*SELINUX="
+      expect      : "^\s*SELINUX=enforcing\b"
+      severity    : HIGH
+    </custom_item>
+
+    # 13.1.3 firewalld Aktif
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "13.1.3 Red Hat Ailesi: firewalld servisinin aktif ve calisir oldugunu dogrula"
+      info        : "AYARIN ANLAMI: RHEL tabanli sistemlerde yerel guvenlik duvarinin acik olmasidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: RHEL 7/8/9, Rocky 8/9, CentOS 7, Oracle Linux 7/8/9"
+      solution    : "systemctl enable firewalld && systemctl start firewalld"
+      reference   : "800-53|SC-7,CSCv8|4.4,CIS-L1|3.5.1"
+      cmd         : "systemctl is-active firewalld 2>&1"
+      expect      : "^active$"
+      severity    : HIGH
+    </custom_item>
+
+    # 13.1.4 RPM GPG Anahtar Doğrulaması (gpgcheck=1)
+    <custom_item>
+      system      : "Linux"
+      type        : FILE_CONTENT_CHECK
+      description : "13.1.4 Red Hat Ailesi: dnf/yum icinde gpgcheck=1 oldugunu dogrula"
+      info        : "AYARIN ANLAMI: Yuklenen RPM paketlerinin dijital imzalarinin dogrulanmasidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: RHEL 7/8/9, Rocky 8/9, CentOS 7, Oracle Linux 7/8/9"
+      solution    : "sed -i 's/^gpgcheck=.*/gpgcheck=1/' /etc/dnf/dnf.conf 2>/dev/null || sed -i 's/^gpgcheck=.*/gpgcheck=1/' /etc/yum.conf 2>/dev/null"
+      reference   : "800-53|SI-7,CSCv8|2.2,CIS-L1|1.2.3"
+      file        : "/etc/dnf/dnf.conf"
+      regex       : "^\s*gpgcheck="
+      expect      : "^\s*gpgcheck=1\b"
+      file_required : NO
+      severity    : HIGH
+    </custom_item>
+  </then>
+</if>
+
+# ------------------------------------------------------------------------------
+# 13.2 DEBIAN VE UBUNTU AİLESİ (Ubuntu 18.04, 20.04, 22.04, 24.04, Debian 12/13)
+# ------------------------------------------------------------------------------
+<if>
+  <condition type:"AND">
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "Sistemin Debian veya Ubuntu ailesi olup olmadigini tespit et"
+      cmd         : "grep -Ei 'ubuntu|debian' /etc/os-release 2>/dev/null"
+      expect      : "ID="
+    </custom_item>
+  </condition>
+  <then>
+    # 13.2.1 AppArmor Servisi Aktif
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "13.2.1 Debian/Ubuntu Ailesi: AppArmor servisinin aktif ve calisir oldugunu dogrula"
+      info        : "AYARIN ANLAMI: Debian/Ubuntu uzerinde uygulama profillerini kisitlayan guvenlik moduludur.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Ubuntu 18/20/22/24 LTS, Debian 12/13"
+      solution    : "systemctl enable apparmor && systemctl start apparmor"
+      reference   : "800-53|AC-3,CSCv8|3.3,CIS-L1|1.6.1.1"
+      cmd         : "systemctl is-active apparmor 2>&1"
+      expect      : "^active$"
+      severity    : HIGH
+    </custom_item>
+
+    # 13.2.2 UFW veya nftables Güvenlik Duvarı Aktif
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "13.2.2 Debian/Ubuntu Ailesi: UFW veya nftables guvenlik duvarinin aktif oldugunu dogrula"
+      info        : "AYARIN ANLAMI: Ubuntu/Debian uzerinde yerel guvenlik duvarinin aktif olmasidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: Ubuntu 18/20/22/24 LTS, Debian 12/13"
+      solution    : "ufw --force enable || systemctl enable nftables"
+      reference   : "800-53|SC-7,CSCv8|4.4,CIS-L1|3.5.1"
+      cmd         : "ufw status 2>&1 | grep -i 'Status: active' || systemctl is-active nftables 2>&1"
+      expect      : "(Status: active|^active$)"
+      severity    : HIGH
+    </custom_item>
+  </then>
+</if>
+
+# ------------------------------------------------------------------------------
+# 13.3 SUSE AİLESİ (SLES 12, SLES 15 / SLES for SAP, SLES 16)
+# ------------------------------------------------------------------------------
+<if>
+  <condition type:"AND">
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "Sistemin SUSE / SLES ailesi olup olmadigini tespit et"
+      cmd         : "grep -Ei 'sles|suse' /etc/os-release 2>/dev/null"
+      expect      : "ID="
+    </custom_item>
+  </condition>
+  <then>
+    # 13.3.1 AppArmor veya SELinux Aktif
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "13.3.1 SUSE Ailesi: AppArmor veya SELinux servisinin aktif oldugunu dogrula"
+      info        : "AYARIN ANLAMI: SUSE Linux Enterprise Server ve SAP sistemlerinde zorunlu erisim kontroludur.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: SLES 12 (Kernel 4.x), SLES 15 / SAP (Kernel 5.x), SLES 16 (Kernel 6.x)"
+      solution    : "systemctl enable apparmor && systemctl start apparmor"
+      reference   : "800-53|AC-3,CSCv8|3.3,CIS-L1|1.6.1"
+      cmd         : "systemctl is-active apparmor 2>&1 || /usr/sbin/getenforce 2>&1"
+      expect      : "(^active$|^Enforcing$)"
+      severity    : HIGH
+    </custom_item>
+
+    # 13.3.2 SUSE Güvenlik Duvarı Aktif
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "13.3.2 SUSE Ailesi: firewalld veya SuSEfirewall2 servisinin aktif oldugunu dogrula"
+      info        : "AYARIN ANLAMI: SUSE uzerinde yerel guvenlik duvarinin calismasidir.
+BULGU SEVIYESI: YUKSEK (High)
+KAPSAM: SUSE Linux Enterprise (12, 15, 16)"
+      solution    : "systemctl enable firewalld && systemctl start firewalld"
+      reference   : "800-53|SC-7,CSCv8|4.4,CIS-L1|3.5.1"
+      cmd         : "systemctl is-active firewalld 2>&1 || systemctl is-active SuSEfirewall2 2>&1"
+      expect      : "^active$"
+      severity    : HIGH
+    </custom_item>
+  </then>
+</if>
+
+</check_type>
