@@ -1900,4 +1900,122 @@ KAPSAM: SUSE Linux Enterprise (12, 15, 16)"
   </then>
 </if>
 
+
+# ==============================================================================
+# BÖLÜM 14: KURUMSAL SİBER GÜVENCE CHECKLIST VE AJAN KONTROLLERİ
+# ==============================================================================
+# AYARIN AMACI: Kurum içi Siber Güvence ekibinin yayınladığı 'Configuration Baseline
+# Checklist (LinuxServer)' gereksinimlerinin (Trend Micro, SolarWinds, ManageEngine,
+# Active Directory, RedHat Subscription vb.) denetlenmesidir.
+# BULGU SEVİYESİ: KRİTİK / YÜKSEK
+# KAPSAM: Tüm Kurumsal Linux Sunucuları
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 14.1 Trend Micro Güvenlik Ajanı (Siber Güvence Madde 6 - Must)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "14.1 Kurumsal: Trend Micro guvenlik ajaninin (ds_agent) aktif ve calisir oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucunun zararlı yazılımlara ve saldırılara karşı Trend Micro Deep Security / Apex One ajanı ile korunmasıdır.
+TEHLİKE: Antivirüs/EDR koruması olmayan sunucular fidye yazılımlarına (Ransomware) ve zararlı yazılımlara doğrudan açıktır.
+BULGU SEVİYESİ: KRİTİK (Critical) - Siber Güvence Zorunlu (Must)
+KAPSAM: Tüm Kurumsal Linux Sunucuları"
+  solution    : "Trend Micro ajan servisini başlatın ve aktif edin:
+systemctl enable ds_agent && systemctl start ds_agent"
+  reference   : "800-53|SI-3,CSCv8|10.1,KURUMSAL|SG-6"
+  cmd         : "systemctl is-active ds_agent 2>&1 || (pgrep -x ds_agent >/dev/null && echo 'active') || echo 'inactive'"
+  expect      : "^active$"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# 14.2 ManageEngine Yama Yönetimi Ajanı (Siber Güvence Madde 7 - Must)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "14.2 Kurumsal: ManageEngine yama yonetimi ajaninin aktif ve calisir oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucu üzerindeki tüm paketlerin güncelliğinin ManageEngine Patch Manager / Endpoint Central ajanı ile takip edilmesidir.
+TEHLİKE: Güncellenmeyen yazılım paketleri bilinen CVE zafiyetlerine maruz kalır.
+BULGU SEVİYESİ: YÜKSEK (High) - Siber Güvence Zorunlu (Must)
+KAPSAM: Tüm Kurumsal Linux Sunucuları"
+  solution    : "ManageEngine servisini başlatın ve aktif edin:
+systemctl enable uemsagent 2>/dev/null || systemctl enable dcendpointcentral 2>/dev/null
+systemctl start uemsagent 2>/dev/null || systemctl start dcendpointcentral 2>/dev/null"
+  reference   : "800-53|SI-2,CSCv8|7.1,KURUMSAL|SG-7"
+  cmd         : "systemctl is-active uemsagent 2>&1 || systemctl is-active dcendpointcentral 2>&1 || (pgrep -f -i manageengine >/dev/null && echo 'active') || echo 'inactive'"
+  expect      : "^active$"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# 14.3 SolarWinds Sistem İzleme Ajanı (Siber Güvence Madde 12 - Must)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "14.3 Kurumsal: SolarWinds izleme ajaninin (swiagent) aktif ve calisir oldugunu dogrula"
+  info        : "AYARIN ANLAMI: Sunucunun kaynak tüketimi, erişilebilirliği ve durumunun SolarWinds Orion ajanı ile merkezi izlenmesidir.
+TEHLİKE: İzlenmeyen sunucularda kesintiler ve kaynak taşmaları önceden fark edilemez.
+BULGU SEVİYESİ: ORTA (Medium) - Siber Güvence Zorunlu (Must)
+KAPSAM: Tüm Kurumsal Linux Sunucuları"
+  solution    : "SolarWinds ajan servisini başlatın ve aktif edin:
+systemctl enable swiagent && systemctl start swiagent"
+  reference   : "800-53|AU-6,CSCv8|8.1,KURUMSAL|SG-12"
+  cmd         : "systemctl is-active swiagent 2>&1 || (pgrep -x swiagent >/dev/null && echo 'active') || echo 'inactive'"
+  expect      : "^active$"
+  severity    : MEDIUM
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# 14.4 Active Directory / Merkezi Kimlik Doğrulama (Siber Güvence Madde 9 - Recommended)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "14.4 Kurumsal: Active Directory baglantisi icin SSSD / Realmd servisinin aktifligini dogrula"
+  info        : "AYARIN ANLAMI: Sunucuya bağlantıların yerel hesaplar yerine merkezi Active Directory üzerinden Kerberos/LDAP ile yapılmasıdır.
+TEHLİKE: Yerel hesap kullanımı personel işten ayrıldığında hesap kapatmayı ve denetimi zorlaştırır.
+BULGU SEVİYESİ: ORTA (Medium) - Siber Güvence Tavsiye (Recommended)
+KAPSAM: Tüm Kurumsal Linux Sunucuları"
+  solution    : "Sunucuyu Active Directory alan adına dahil edin (realm join) ve SSSD servisini başlatın:
+systemctl enable sssd && systemctl start sssd"
+  reference   : "800-53|IA-2,CSCv8|5.2,KURUMSAL|SG-9"
+  cmd         : "systemctl is-active sssd 2>&1 || systemctl is-active winbind 2>&1 || echo 'inactive'"
+  expect      : "^active$"
+  severity    : MEDIUM
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# 14.5 Red Hat Sunucularda Abonelik Durumu (Siber Güvence Madde 7 - Subscriptions)
+# ------------------------------------------------------------------------------
+<if>
+  <condition type:"AND">
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "Sistemin RHEL olup olmadigini kontrol et"
+      cmd         : "grep -Ei '^ID=.*(rhel)' /etc/os-release 2>/dev/null"
+      expect      : "ID="
+    </custom_item>
+  </condition>
+  <then>
+    <custom_item>
+      system      : "Linux"
+      type        : CMD_EXEC
+      description : "14.5 RHEL: Red Hat aboneliginin (subscription-manager) aktif oldugunu dogrula"
+      info        : "AYARIN ANLAMI: RHEL sunucuların resmi Red Hat depolarından güvenlik yamalarını alabilmesi için kayıtlı olmasıdır.
+BULGU SEVİYESİ: YÜKSEK (High)
+KAPSAM: Red Hat Enterprise Linux (RHEL 7/8/9)"
+      solution    : "subscription-manager register --auto-attach"
+      reference   : "800-53|SI-2,CSCv8|2.2,KURUMSAL|SG-7"
+      cmd         : "subscription-manager status 2>&1 | grep -i 'Overall Status:'"
+      expect      : "Overall Status:\s+(Current|Disabled)"
+      severity    : HIGH
+    </custom_item>
+  </then>
+</if>
+
 </check_type>
