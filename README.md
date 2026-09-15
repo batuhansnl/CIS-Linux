@@ -9,8 +9,11 @@ Bu dizin, Tenable Nessus'un resmi uyumluluk denetim deposundan (Tenable Complian
 ```text
 cıs linux/
 ├── Unified_Linux_CIS_L1_Master_Baseline.audit   # Tüm Linux filosu için birleşik Master CIS L1 Audit dosyası
+├── CIS_Linux_L1_Master_Baseline.xlsx            # Master Baseline kural matrisi, Siber Güvence gap analizi ve dashboard
+├── generate_master_baseline_excel.py            # Excel çalışma kitabını otomatik üreten Python betiği
 ├── reports/
-│   └── CIS_Linux_L1_Karsilastirmali_Analiz_Raporu.md # Dağıtımlar arası kural sıklığı ve kritiklik analiz raporu
+│   ├── CIS_Linux_L1_Karsilastirmali_Analiz_Raporu.md # Dağıtımlar arası kural sıklığı ve kritiklik analiz raporu
+│   └── Siber_Guvence_Baseline_Karsilastirma_ve_Analiz.md # Kurumsal Siber Güvence checklist gap analizi
 ├── guides/
 │   └── Tenable_Nessus_Compliance_Checks_Reference_Guide.pdf # Tenable resmi audit rehberi
 ├── audits/
