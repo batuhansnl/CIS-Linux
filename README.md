@@ -10,7 +10,9 @@ Bu dizin, Tenable Nessus'un resmi uyumluluk denetim deposundan (Tenable Complian
 cıs linux/
 ├── Unified_Linux_CIS_L1_Master_Baseline.audit   # Tüm Linux filosu için birleşik Master CIS L1 Audit dosyası
 ├── CIS_Linux_L1_Master_Baseline.xlsx            # Master Baseline kural matrisi, Siber Güvence gap analizi ve dashboard
-├── generate_master_baseline_excel.py            # Excel çalışma kitabını otomatik üreten Python betiği
+├── Siber_Guvence_Linux_Server_Baseline_Guncellenmis.xlsx # Siber Güvence ekibi için revize edilen 25 maddelik checklist
+├── generate_master_baseline_excel.py            # Master Baseline Excel üretim betiği
+├── generate_siber_guvence_revised_excel.py      # Siber Güvence revize Excel üretim betiği
 ├── reports/
 │   ├── CIS_Linux_L1_Karsilastirmali_Analiz_Raporu.md # Dağıtımlar arası kural sıklığı ve kritiklik analiz raporu
 │   └── Siber_Guvence_Baseline_Karsilastirma_ve_Analiz.md # Kurumsal Siber Güvence checklist gap analizi
