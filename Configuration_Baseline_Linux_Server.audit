@@ -56,18 +56,18 @@ DEGISIKLIK DURUMU: Mevcut Madde (Onaylandi)"
 <custom_item>
   system      : "Linux"
   type        : CMD_EXEC
-  description : "2. Access & Authentication: Root parolasi ve parola karmasiklik politikasini dogrula (minlen=14, SHA512)"
+  description : "2. Access & Authentication: Root parolasi ve parola karmasiklik politikasini dogrula (minlen=21, SHA512)"
   info        : "GEREKSINIM (Requirement): Have a strong password for root account and enforce password complexity.
 BOLUM (Section): Access & Authentication
-YAPILMASI GEREKEN AYAR: minlen=14, dcredit=-1, ucredit=-1, lcredit=-1, ocredit=-1, SHA512 algoritmasi. Root parolasi asla e-posta/sohbet uzerinden paylasilmamalidir.
+YAPILMASI GEREKEN AYAR: minlen=21, dcredit=-1, ucredit=-1, lcredit=-1, ocredit=-1, SHA512 algoritmasi. Root parolasi asla e-posta/sohbet uzerinden paylasilmamalidir.
 HEDEF BILESEN: /etc/security/pwquality.conf & /etc/login.defs
 STATU: Must
 GUVENLIK GEREKCESI: Kaba kuvvet (brute-force) ve sozluk saldirilariyla en yetkili isletim sistemi hesabinin ele gecirilmesini engeller.
 DEGISIKLIK DURUMU: Mevcut Madde (Guclendirildi: Degerler Eklendi)"
-  solution    : "/etc/security/pwquality.conf dosyasina asagidaki parametreleri ekleyin:\nminlen = 14\ndcredit = -1\nucredit = -1\nlcredit = -1\nocredit = -1\n/etc/login.defs dosyasinda ENCRYPT_METHOD SHA512 oldugundan emin olun."
+  solution    : "/etc/security/pwquality.conf dosyasina asagidaki parametreleri ekleyin:\nminlen = 21\ndcredit = -1\nucredit = -1\nlcredit = -1\nocredit = -1\n/etc/login.defs dosyasinda ENCRYPT_METHOD SHA512 oldugundan emin olun."
   reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|5.4.1,BASELINE|ITEM-02"
   cmd         : "grep -E '^\s*(minlen|dcredit|ucredit|lcredit|ocredit)\s*=' /etc/security/pwquality.conf 2>/dev/null || grep -E '^\s*ENCRYPT_METHOD\s+SHA512' /etc/login.defs 2>/dev/null"
-  expect      : "(minlen\s*=\s*(1[4-9]|[2-9][0-9])|ENCRYPT_METHOD\s+SHA512)"
+  expect      : "(minlen\s*=\s*(2[1-9]|[3-9][0-9])|ENCRYPT_METHOD\s+SHA512)"
   severity    : HIGH
 </custom_item>
 

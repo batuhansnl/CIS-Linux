@@ -133,7 +133,7 @@ def create_revised_baseline():
         (
             2, "Access & Authentication",
             "Have a strong password for root account and enforce password complexity.",
-            "minlen=14, dcredit=-1, ucredit=-1, lcredit=-1, ocredit=-1, SHA512 algoritması. Root parolası asla e-posta/sohbet üzerinden paylaşılmamalıdır.",
+            "minlen=21, dcredit=-1, ucredit=-1, lcredit=-1, ocredit=-1, SHA512 algoritması. Root parolası asla e-posta/sohbet üzerinden paylaşılmamalıdır.",
             "/etc/security/pwquality.conf & /etc/login.defs",
             "Must",
             "Kaba kuvvet (brute-force) ve sözlük saldırılarıyla en yetkili işletim sistemi hesabının ele geçirilmesini engeller.",
