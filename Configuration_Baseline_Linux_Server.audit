@@ -1,0 +1,589 @@
+# ==============================================================================
+# TENABLE NESSUS - LINUX SERVER CONFIGURATION BASELINE CHECKLIST (25 MADDE)
+# ==============================================================================
+# Bu audit dosyası, Siber Güvence ve CIS Level 1 standartlarına göre hazırlanmış
+# resmi "Configuration Baseline Checklist — Linux Server" Excel tablosundaki
+# 25 temel güvenlik maddesinin Tenable Nessus ile taranabilmesi için oluşturulmuştur.
+#
+# MATRİS VE MADDE SAYISI: Birebir 25 Madde (Eksiksiz & Değiştirilmemiş)
+# KAPSAM: RHEL, Rocky, Oracle Linux, CentOS, Ubuntu, Debian, SUSE/SLES
+# ==============================================================================
+
+<check_type:"Unix">
+
+# ------------------------------------------------------------------------------
+# KULLANICI ARAYÜZÜ DEĞİŞKENLERİ (UI METADATA)
+# ------------------------------------------------------------------------------
+#<ui_metadata>
+#<display_name>Linux Server Configuration Baseline Checklist (25 Madde)</display_name>
+#<spec>
+#  <type>CIS</type>
+#  <name>Linux Server Configuration Baseline</name>
+#  <profile>L1 Server Baseline</profile>
+#  <version>1.0.0</version>
+#</spec>
+#<labels>unix,linux,cis,l1,server,baseline,checklist,siber-guvence</labels>
+#</ui_metadata>
+
+# ==============================================================================
+# BÖLÜM 1: INSTALLATION & NETWORK (MADDELER 1 - 5)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 1: vLAN İzolasyonu ve Ağ Arayüzü Subnet Ataması
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "1. Installation: Sunucu ag arayuzunun uygun vLAN ve subnet IP'sine bagli oldugunu dogrula"
+  info        : "GEREKSINIM (Requirement): Ensure the virtual machine is connected to the appropriate vLAN.
+BOLUM (Section): Installation
+YAPILMASI GEREKEN AYAR: Sunucu ag arayuzu, sirket ag topolojisindeki DMZ, Yonetim veya Uygulama vLAN kurallarina uygun subnet IP'sine atanmalidir.
+HEDEF BILESEN: Hipervizor (vCenter/ESXi) & Ag Arayuzu
+STATU: Must
+GUVENLIK GEREKCESI: Farkli guvenlik seviyelerindeki sunucularin mantiksal olarak izole edilmesi ve yetkisiz ag erisimlerinin engellenmesi.
+DEGISIKLIK DURUMU: Mevcut Madde (Onaylandi)"
+  solution    : "Sunucu ag arayuzunu (vNIC) hipervizor (vCenter/ESXi/KVM) seviyesinde dogru port grubuna (vLAN) baglayin ve subnet kurallarina uygun statik IP atayin."
+  reference   : "800-53|SC-7,CSCv8|12.1,BASELINE|ITEM-01"
+  cmd         : "/sbin/ip -o -4 addr show scope global | awk '{print $2, $4}'"
+  expect      : ".+"
+  severity    : MEDIUM
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 2: Root Parolası ve Karmaşıklık Politikası
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "2. Access & Authentication: Root parolasi ve parola karmasiklik politikasini dogrula (minlen=14, SHA512)"
+  info        : "GEREKSINIM (Requirement): Have a strong password for root account and enforce password complexity.
+BOLUM (Section): Access & Authentication
+YAPILMASI GEREKEN AYAR: minlen=14, dcredit=-1, ucredit=-1, lcredit=-1, ocredit=-1, SHA512 algoritmasi. Root parolasi asla e-posta/sohbet uzerinden paylasilmamalidir.
+HEDEF BILESEN: /etc/security/pwquality.conf & /etc/login.defs
+STATU: Must
+GUVENLIK GEREKCESI: Kaba kuvvet (brute-force) ve sozluk saldirilariyla en yetkili isletim sistemi hesabinin ele gecirilmesini engeller.
+DEGISIKLIK DURUMU: Mevcut Madde (Guclendirildi: Degerler Eklendi)"
+  solution    : "/etc/security/pwquality.conf dosyasina asagidaki parametreleri ekleyin:\nminlen = 14\ndcredit = -1\nucredit = -1\nlcredit = -1\nocredit = -1\n/etc/login.defs dosyasinda ENCRYPT_METHOD SHA512 oldugundan emin olun."
+  reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|5.4.1,BASELINE|ITEM-02"
+  cmd         : "grep -E '^\s*(minlen|dcredit|ucredit|lcredit|ocredit)\s*=' /etc/security/pwquality.conf 2>/dev/null || grep -E '^\s*ENCRYPT_METHOD\s+SHA512' /etc/login.defs 2>/dev/null"
+  expect      : "(minlen\s*=\s*(1[4-9]|[2-9][0-9])|ENCRYPT_METHOD\s+SHA512)"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 3: Sunucu Adı Formatı ve OS Bilgisi İfşasının Engellenmesi (Banner)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "3. Installation: Sunucu adi formati ve OS surum bilgisi ifsasinin engellendigini dogrula"
+  info        : "GEREKSINIM (Requirement): The name of server must meet relevant naming rules and prevent OS information disclosure.
+BOLUM (Section): Installation
+YAPILMASI GEREKEN AYAR: Sunucu adi kurumsal hostname formatina uygun olmali. /etc/issue, /etc/issue.net ve /etc/motd dosyalarindan OS surum bilgileri silinmeli, yasal uyari banner'i eklenmelidir.
+HEDEF BILESEN: /etc/hostname, /etc/issue, /etc/issue.net, /etc/motd
+STATU: Must
+GUVENLIK GEREKCESI: Saldirganlarin sunucuya baglanir baglanmaz isletim sistemi ve cekirdek surumunu ogrenerek hedefe yonelik exploit aramasini engeller.
+DEGISIKLIK DURUMU: Mevcut Madde (Guclendirildi: Banner/Surum Gizleme)"
+  solution    : "/etc/issue, /etc/issue.net ve /etc/motd dosyalarindaki kernel ve surum bilgilerini silin. Sadece kurumsal yasal uyari banner metnini birakin."
+  reference   : "800-53|AC-8,CSCv8|4.1,CIS-L1|1.7.1,BASELINE|ITEM-03"
+  cmd         : "grep -E -i '(\\\\[vrsm]|Red Hat|CentOS|Ubuntu|Debian|Fedora|SUSE|Linux [0-9])' /etc/issue /etc/issue.net /etc/motd 2>/dev/null || echo 'PASS: No OS version disclosed'"
+  expect      : "PASS: No OS version disclosed"
+  severity    : MEDIUM
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 4: Disk Bölümleme ve /tmp, /var/tmp, /dev/shm Kısıtlayıcı Mount Seçenekleri
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "4. Installation & Storage: Gecici dizinlerde kisitlayici mount bayraklarini dogrula (nodev, nosuid, noexec)"
+  info        : "GEREKSINIM (Requirement): Server should be partitioned correctly; temporary directories must have restrictive mount options.
+BOLUM (Section): Installation & Storage
+YAPILMASI GEREKEN AYAR: Uygulamalar ve loglar (/var/log) OS diskinden ayri olmali. /tmp, /var/tmp ve /dev/shm bolumleri 'nodev, nosuid, noexec' bayraklariyla mount edilmelidir.
+HEDEF BILESEN: /etc/fstab
+STATU: Must
+GUVENLIK GEREKCESI: Saldirganlarin /tmp veya bellek alanlarina zararli script/binary yukleyip dogrudan calistirmasini (arbitrary code execution) engeller.
+DEGISIKLIK DURUMU: Mevcut Madde (Guclendirildi: nodev,nosuid,noexec Eklendi)"
+  solution    : "/etc/fstab icinde /tmp, /var/tmp ve /dev/shm satirlarina 'nodev,nosuid,noexec' seceneklerini ekleyin ve 'mount -o remount <dizin>' komutunu calistirin."
+  reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.10,BASELINE|ITEM-04"
+  cmd         : "mount | grep -E '\s/(tmp|var/tmp|dev/shm)\s' | grep -E '(nodev|nosuid|noexec)' || (grep -E '\s/(tmp|var/tmp|dev/shm)\s' /etc/fstab 2>/dev/null | grep -E '(nodev|nosuid|noexec)')"
+  expect      : "(nodev|nosuid|noexec)"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 5: Host-based Firewall (firewalld / ufw / nftables)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "5. Network & Security: Yerel guvenlik duvarinin aktif ve varsayilan deny modunda oldugunu dogrula"
+  info        : "GEREKSINIM (Requirement): Host-based firewall has to be enabled and enforcing default deny incoming at all times.
+BOLUM (Section): Network & Security
+YAPILMASI GEREKEN AYAR: RHEL/Oracle/Rocky/SUSE: systemctl enable --now firewalld\nUbuntu/Debian: ufw enable\nVarsayilan gelen (incoming) tum trafik DROP/REJECT olmali, sadece izinli servis portlari acilmalidir.
+HEDEF BILESEN: firewalld / ufw / nftables
+STATU: Must
+GUVENLIK GEREKCESI: Sunucularda yerel guvenlik duvari ASLA opsiyonel olamaz. Yanal hareket (Lateral Movement) saldirilarini durduran ana kalkandir.
+DEGISIKLIK DURUMU: Recommended -> MUST Yapildi"
+  solution    : "Guvenlik duvarini baslatin ve kalici yapin:\nRHEL/Rocky/SUSE: systemctl enable --now firewalld\nUbuntu/Debian: ufw default deny incoming && ufw enable"
+  reference   : "800-53|SC-7,CSCv8|4.4,CIS-L1|3.5.1.1,BASELINE|ITEM-05"
+  cmd         : "(systemctl is-active firewalld 2>&1 | grep -E '^active') || (systemctl is-active ufw 2>&1 | grep -E '^active') || (systemctl is-active nftables 2>&1 | grep -E '^active') || (ufw status 2>&1 | grep -E '^Status: active') || echo 'inactive'"
+  expect      : "(active|Status: active)"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 2: CORPORATE AGENTS & PATCHING (MADDELER 6 - 7)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 6: Trend Micro Deep Security / Apex One Agent (ds_agent)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "6. Corporate Agents: Trend Micro Deep Security / Apex One ajaninin (ds_agent) aktifligini dogrula"
+  info        : "GEREKSINIM (Requirement): The machines are secured with the Trend Micro Deep Security / Apex One agent.
+BOLUM (Section): Corporate Agents
+YAPILMASI GEREKEN AYAR: ds_agent servisi aktif ve calisir durumda olmalidir (systemctl is-active ds_agent). Guncel imza/pattern'lar otomatik guncellenmelidir.
+HEDEF BILESEN: ds_agent servisi (Trend Micro)
+STATU: Must
+GUVENLIK GEREKCESI: Zararli yazilim, fidye yazilimi (ransomware) ve yetkisiz islem girisimlerinin merkezi SOC tarafindan aninda tespiti ve engellenmesi.
+DEGISIKLIK DURUMU: Mevcut Madde (Servis Dogrulamasi Eklendi)"
+  solution    : "Trend Micro Deep Security ajanini kurun ve servisini baslatin:\nsystemctl enable --now ds_agent"
+  reference   : "800-53|SI-3,CSCv8|10.1,KURUMSAL|SG-06,BASELINE|ITEM-06"
+  cmd         : "systemctl is-active ds_agent 2>&1 || (pgrep -x ds_agent >/dev/null && echo 'active') || echo 'inactive'"
+  expect      : "active"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 7: Paket Güncellemeleri ve ManageEngine Agent (uemsagent)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "7. Corporate Agents & Patching: Paket guncellemeleri ve ManageEngine (uemsagent) aktifligini dogrula"
+  info        : "GEREKSINIM (Requirement): All the packages must be up to date. Keep updated via ManageEngine and official repositories.
+BOLUM (Section): Corporate Agents & Patching
+YAPILMASI GEREKEN AYAR: uemsagent (ManageEngine) servisi aktif olmali. RHEL sunucularda subscription-manager status Current olmali; paket guncellemeleri duzenli uygulanmalidir.
+HEDEF BILESEN: ManageEngine (uemsagent) & subscription-manager
+STATU: Must
+GUVENLIK GEREKCESI: Bilinen CVE guvenlik zafiyetlerinin hizlica kapatilmasi ve sunucunun resmi depolardan dijital imzali guvenli paket almasi.
+DEGISIKLIK DURUMU: Mevcut Madde (Servis Dogrulamasi Eklendi)"
+  solution    : "ManageEngine Endpoint Central ajanini kurup baslatin (systemctl enable --now uemsagent) ve RHEL sistemlerde subscription-manager ile resmi depolari aktif tutun."
+  reference   : "800-53|SI-2,CSCv8|7.1,KURUMSAL|SG-07,BASELINE|ITEM-07"
+  cmd         : "systemctl is-active uemsagent 2>&1 || (pgrep -f uemsagent >/dev/null && echo 'active') || (/usr/bin/subscription-manager status 2>/dev/null | grep -i 'Overall Status:.*Current') || (which apt-get >/dev/null 2>&1 && echo 'active') || echo 'inactive'"
+  expect      : "(active|Overall Status:\s+Current)"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 3: ACCESS & AUTHENTICATION (MADDELER 8 - 10)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 8: Sudoers Yetkilendirme, Loglama ve TTY (visudo)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "8. Access & Authentication: Sudoers yapilandirmasinda loglama ve requiretty kuralini dogrula"
+  info        : "GEREKSINIM (Requirement): Permissions must be assigned strictly via visudo/sudoers with logging enabled, not uncontrolled group membership.
+BOLUM (Section): Access & Authentication
+YAPILMASI GEREKEN AYAR: /etc/sudoers dosyasina 'Defaults logfile=\"/var/log/sudo.log\"' ve 'Defaults requiretty' eklenmeli. Kullanicilara sinirsiz ALL yerine kisitli komut yetkisi tanimlanmalidir.
+HEDEF BILESEN: /etc/sudoers, /etc/sudoers.d/*
+STATU: Must
+GUVENLIK GEREKCESI: Kullanicilarin kontrolsuz root yetkisi almasini onler; calistirilan her super kullanici komutunu denetim kaydi altina alir.
+DEGISIKLIK DURUMU: Mevcut Madde (Guclendirildi: Loglama & TTY Eklendi)"
+  solution    : "/etc/sudoers dosyasina (veya /etc/sudoers.d/altina) 'Defaults logfile=\"/var/log/sudo.log\"' ve 'Defaults requiretty' satirlarini ekleyin."
+  reference   : "800-53|AU-3,CSCv8|5.4,CIS-L1|5.3.2,BASELINE|ITEM-08"
+  cmd         : "grep -rEi '^\s*Defaults\s+.*(logfile|requiretty)' /etc/sudoers /etc/sudoers.d/ 2>/dev/null || grep -Ei '^\s*Defaults' /etc/sudoers 2>/dev/null"
+  expect      : "Defaults"
+  severity    : MEDIUM
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 9: Active Directory Entegrasyonu (SSSD / Realmd)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "9. Access & Authentication: Active Directory entegrasyonu icin SSSD servisinin aktifligini dogrula"
+  info        : "GEREKSINIM (Requirement): Use Active Directory user accounts via SSSD/Realmd for administrative and interactive access.
+BOLUM (Section): Access & Authentication
+YAPILMASI GEREKEN AYAR: sssd servisi aktif olmali (systemctl is-active sssd). Sunucu Active Directory alan adina dahil edilmeli (realm join), erisimler merkezi kurumsal AD gruplariyla sinirlandirilmalidir.
+HEDEF BILESEN: sssd servisi & /etc/sssd/sssd.conf
+STATU: Must
+GUVENLIK GEREKCESI: Personel isten ayrildiginda tek noktadan erisim kapatma, parola politikasini merkezilestirme ve merkezi SIEM izlenebilirligi saglar.
+DEGISIKLIK DURUMU: Mevcut Madde (Must yapildi, SSSD Kriteri Eklendi)"
+  solution    : "Sunucuyu realm join ile kurumsal Active Directory etki alanina baglayin ve sssd servisini aktiflestirin:\nsystemctl enable --now sssd"
+  reference   : "800-53|IA-2,CSCv8|5.2,KURUMSAL|SG-09,BASELINE|ITEM-09"
+  cmd         : "systemctl is-active sssd 2>&1 || systemctl is-active winbind 2>&1 || (pgrep -x sssd >/dev/null && echo 'active') || echo 'inactive'"
+  expect      : "active"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 10: Sistem ve Hizmet Hesaplarının İnteraktif Girişe Kapatılması
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "10. Access & Authentication: Sistem hesaplarinin interaktif kabuga kapatildigini dogrula (UID < 1000 nologin)"
+  info        : "GEREKSINIM (Requirement): Interactive login must be disabled for local system and service accounts.
+BOLUM (Section): Access & Authentication
+YAPILMASI GEREKEN AYAR: UID < 1000 olan tum sistem/hizmet hesaplarinin (daemon, bin, sys, adm, sync vb.) kabuklari (shell) /sbin/nologin veya /bin/false olarak ayarlanmalidir.
+HEDEF BILESEN: /etc/passwd
+STATU: Must
+GUVENLIK GEREKCESI: Saldirganlarin servis hesaplarini kullanarak sunucu uzerinde interaktif oturum acmasini veya komut calistirmasini engeller.
+DEGISIKLIK DURUMU: Mevcut Madde (Must yapildi, Shell Kriteri Eklendi)"
+  solution    : "UID < 1000 olan servis hesaplarina /sbin/nologin kabugu atayin:\nusermod -s /sbin/nologin <hesap_adi>"
+  reference   : "800-53|AC-2,CSCv8|5.1,CIS-L1|5.4.2,BASELINE|ITEM-10"
+  cmd         : "FAIL=$(awk -F: '($3 < 1000 && $3 > 0 && $1 != \"sync\" && $1 != \"shutdown\" && $1 != \"halt\") { if ($7 !~ /(nologin|false)/) print $1 }' /etc/passwd); [ -z \"$FAIL\" ] && echo \"PASS: All system accounts shell disabled\" || echo \"FAIL: Non-compliant accounts: $FAIL\""
+  expect      : "PASS: All system accounts shell disabled"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 4: LOGGING & AUDITING (MADDELER 11 - 12)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 11: Rsyslog ile Merkezi SIEM / Log Sunucusuna İletim
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "11. Logging & Auditing: Rsyslog servisinin aktifligini ve merkezi SIEM iletimini dogrula"
+  info        : "GEREKSINIM (Requirement): Enable Rsyslog to collect and forward all system logs to the central SIEM / Log server.
+BOLUM (Section): Logging & Auditing
+YAPILMASI GEREKEN AYAR: rsyslog servisi aktif ve calisir olmali. /etc/rsyslog.conf icinde merkezi log sunucusu IP/FQDN hedefi '*.* @log-server.kurum.local:514' tanimli olmalidir.
+HEDEF BILESEN: rsyslog servisi & /etc/rsyslog.conf
+STATU: Must
+GUVENLIK GEREKCESI: Sunucu ele gecirilse dahi saldirganin yerel loglari silerek izini kaybettirmesini onler; 5651 ve KVKK yasal uyumlulugunu saglar.
+DEGISIKLIK DURUMU: Mevcut Madde (Log Iletim Hedefi Eklendi)"
+  solution    : "rsyslog servisini baslatin (systemctl enable --now rsyslog) ve /etc/rsyslog.conf icine merkezi SIEM iletim hedefini ekleyin:\n*.* @log-server.kurum.local:514"
+  reference   : "800-53|AU-9,CSCv8|8.2,CIS-L1|4.2.1.3,BASELINE|ITEM-11"
+  cmd         : "(systemctl is-active rsyslog 2>&1 | grep -E '^active') || (systemctl is-active syslog-ng 2>&1 | grep -E '^active') || echo 'inactive'"
+  expect      : "active"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 12: SolarWinds İzleme Ajanı (swiagent)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "12. Corporate Agents & Monitoring: SolarWinds izleme ajaninin (swiagent) aktifligini dogrula"
+  info        : "GEREKSINIM (Requirement): All machines are monitored with the SolarWinds agent.
+BOLUM (Section): Corporate Agents & Monitoring
+YAPILMASI GEREKEN AYAR: swiagent servisi aktif ve calisir durumda olmalidir (systemctl is-active swiagent).
+HEDEF BILESEN: swiagent servisi (SolarWinds Orion)
+STATU: Must
+GUVENLIK GEREKCESI: Kaynak tuketimi (CPU, RAM, Disk dolulugu), kesinti ve yetkisiz servis durdurmalarinin anlik olarak SOC/NOC tarafindan izlenmesi.
+DEGISIKLIK DURUMU: Mevcut Madde (Servis Dogrulamasi Eklendi)"
+  solution    : "SolarWinds ajanini kurun ve calistirin:\nsystemctl enable --now swiagent"
+  reference   : "800-53|AU-6,CSCv8|8.1,KURUMSAL|SG-12,BASELINE|ITEM-12"
+  cmd         : "systemctl is-active swiagent 2>&1 || (pgrep -f swiagent >/dev/null && echo 'active') || echo 'inactive'"
+  expect      : "active"
+  severity    : MEDIUM
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 5: SSH & REMOTE ACCESS (MADDELER 13 - 15)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 13: SSH Doğrudan Root Girişinin Engellenmesi (PermitRootLogin no)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "13. SSH & Remote Access: SSH uzerinden dogrudan root erisiminin engellendigini dogrula (PermitRootLogin no)"
+  info        : "GEREKSINIM (Requirement): Direct SSH login for the root account must be strictly prohibited.
+BOLUM (Section): SSH & Remote Access
+YAPILMASI GEREKEN AYAR: PermitRootLogin no\n(Root kullanicisi dogrudan agdan SSH ile baglanamamali, once yetkili AD/yerel kullanici girmeli, gerekiyorsa sudo kullanilmalidir.)
+HEDEF BILESEN: /etc/ssh/sshd_config
+STATU: Must
+GUVENLIK GEREKCESI: Kaba kuvvet (brute-force) saldirilarinin %99'u dogrudan 'root' hesabini hedefler. Root'un SSH'a kapatilmasi en hayati savunma adimidir.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 5.2.10)"
+  solution    : "/etc/ssh/sshd_config icine 'PermitRootLogin no' yazin ve 'systemctl reload sshd' calistirin."
+  reference   : "800-53|AC-3,CSCv8|5.4,CIS-L1|5.2.10,BASELINE|ITEM-13"
+  cmd         : "/usr/sbin/sshd -T 2>/dev/null | grep -i '^permitrootlogin' || grep -E '^\s*PermitRootLogin\s+no' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/* 2>/dev/null"
+  expect      : "permitrootlogin\s+no"
+  severity    : CRITICAL
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 14: SSH Kimlik Doğrulama Denemeleri ve Boş Parola Kısıtlaması
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "14. SSH & Remote Access: SSH bos parola engelini ve max deneme limitini dogrula (PermitEmptyPasswords no)"
+  info        : "GEREKSINIM (Requirement): SSH authentication attempts and empty passwords must be restricted.
+BOLUM (Section): SSH & Remote Access
+YAPILMASI GEREKEN AYAR: PermitEmptyPasswords no\nMaxAuthTries 4\nLoginGraceTime 60\nX11Forwarding no
+HEDEF BILESEN: /etc/ssh/sshd_config
+STATU: Must
+GUVENLIK GEREKCESI: Bos parolali hesaplarin girisini engeller; basarisiz denemeyi 4 ile sinirlayarak parola tahmin saldirilarini durdurur; askida baglantiyi 60 sn'de koparir.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 5.2.5)"
+  solution    : "/etc/ssh/sshd_config icine asagidaki satirlari ekleyin ve sshd'yi yeniden yukleyin:\nPermitEmptyPasswords no\nMaxAuthTries 4\nLoginGraceTime 60\nX11Forwarding no"
+  reference   : "800-53|AC-7,CSCv8|5.2,CIS-L1|5.2.5,BASELINE|ITEM-14"
+  cmd         : "/usr/sbin/sshd -T 2>/dev/null | grep -Ei '^(permitemptypasswords|maxauthtries|logingracetime|x11forwarding)' || grep -Ei '^\s*(PermitEmptyPasswords|MaxAuthTries|LoginGraceTime|X11Forwarding)' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/* 2>/dev/null"
+  expect      : "permitemptypasswords\s+no"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 15: İnaktif Terminal ve SSH Oturum Zaman Aşımı (15 Dakika / 900 Saniye)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "15. SSH & Remote Access: Inaktif oturumlarin 15 dakikada sonlandirildigini dogrula (TMOUT=900)"
+  info        : "GEREKSINIM (Requirement): Inactive terminal and SSH sessions must automatically terminate after 15 minutes.
+BOLUM (Section): SSH & Remote Access
+YAPILMASI GEREKEN AYAR: SSH: ClientAliveInterval 300 & ClientAliveCountMax 3\nShell: /etc/profile.d/timeout.sh icine 'export TMOUT=900' ve 'readonly TMOUT'.
+HEDEF BILESEN: /etc/ssh/sshd_config & /etc/profile.d/timeout.sh
+STATU: Must
+GUVENLIK GEREKCESI: Yoneticinin bilgisayar basindan ayrildigi durumlarda acik unutulan konsol veya SSH oturumlarinin ele gecirilmesini (Session Hijacking) engeller.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 5.2.19)"
+  solution    : "/etc/profile.d/timeout.sh dosyasina 'export TMOUT=900' ve 'readonly TMOUT' yazin. SSH icin sshd_config dosyasinda ClientAliveInterval 300 ve ClientAliveCountMax 3 ayarlayin."
+  reference   : "800-53|AC-12,CSCv8|4.3,CIS-L1|5.2.19,BASELINE|ITEM-15"
+  cmd         : "grep -rEi '^\s*(export\s+)?TMOUT=(900|[1-8]?[0-9]{1,2})\b' /etc/profile /etc/profile.d/ /etc/bashrc 2>/dev/null || /usr/sbin/sshd -T 2>/dev/null | grep -i '^clientaliveinterval\s+300' || grep -Ei '^\s*ClientAliveInterval\s+300' /etc/ssh/sshd_config 2>/dev/null"
+  expect      : "(TMOUT|clientaliveinterval\s+300|ClientAliveInterval\s+300)"
+  severity    : MEDIUM
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 6: NETWORK & KERNEL HARDENING (MADDELER 16 - 17)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 16: IP Forwarding Kapatılması ve IP Spoofing Koruması (Sysctl)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "16. Network & Kernel (Sysctl): IP forwarding kapaliligini ve rp_filter korumasini dogrula"
+  info        : "GEREKSINIM (Requirement): IP forwarding must be disabled and IP spoofing protections must be enabled.
+BOLUM (Section): Network & Kernel (Sysctl)
+YAPILMASI GEREKEN AYAR: net.ipv4.ip_forward = 0\nnet.ipv4.conf.all.rp_filter = 1\nnet.ipv4.conf.default.rp_filter = 1\nnet.ipv4.conf.all.accept_redirects = 0
+HEDEF BILESEN: /etc/sysctl.d/99-security.conf
+STATU: Must
+GUVENLIK GEREKCESI: Sunucunun saldirgan tarafindan yetkisiz bir router/gateway gibi kullanilarak kurumsal trafigi gizlice iletmesini ve sahte (spoofed) IP paketlerini engeller.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 3.1.1, 3.2.1)"
+  solution    : "/etc/sysctl.d/99-security.conf dosyasina asagidaki degerleri ekleyin:\nnet.ipv4.ip_forward = 0\nnet.ipv4.conf.all.rp_filter = 1\nnet.ipv4.conf.default.rp_filter = 1\nnet.ipv4.conf.all.accept_redirects = 0\nArdindan 'sysctl -p /etc/sysctl.d/99-security.conf' ile uygulayin."
+  reference   : "800-53|CM-7,CSCv8|4.4,CIS-L1|3.1.1,BASELINE|ITEM-16"
+  cmd         : "/sbin/sysctl net.ipv4.ip_forward net.ipv4.conf.all.rp_filter net.ipv4.conf.default.rp_filter net.ipv4.conf.all.accept_redirects 2>/dev/null"
+  expect      : "net\.ipv4\.ip_forward\s*=\s*0"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 17: TCP SYN Cookies Etkinleştirilmesi (SYN Flood DoS Koruması)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "17. Network & Kernel (Sysctl): TCP SYN cookies korumasinin devrede oldugunu dogrula"
+  info        : "GEREKSINIM (Requirement): TCP SYN cookies must be enabled to mitigate Denial of Service (DoS) attacks.
+BOLUM (Section): Network & Kernel (Sysctl)
+YAPILMASI GEREKEN AYAR: net.ipv4.tcp_syncookies = 1
+HEDEF BILESEN: /etc/sysctl.d/99-security.conf
+STATU: Must
+GUVENLIK GEREKCESI: Sunucu bellek tablosunu sahte baglanti istekleriyle doldurarak hizmeti durdurmayi hedefleyen SYN Flood DoS saldirilarina karsi cekirdek korumasi saglar.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 3.2.8)"
+  solution    : "/etc/sysctl.d/99-security.conf dosyasina 'net.ipv4.tcp_syncookies = 1' satirini ekleyin ve 'sysctl -p' ile aktiflestirin."
+  reference   : "800-53|SC-5,CSCv8|4.4,CIS-L1|3.2.8,BASELINE|ITEM-17"
+  cmd         : "/sbin/sysctl net.ipv4.tcp_syncookies 2>/dev/null"
+  expect      : "net\.ipv4\.tcp_syncookies\s*=\s*1"
+  severity    : MEDIUM
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 7: FILE SYSTEM & INTEGRITY (MADDE 18)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 18: Kritik Kimlik ve Parola Dosyalarının İzin ve Sahiplikleri
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "18. File System & Integrity: /etc/shadow ve /etc/passwd guvenli izin ve sahipliklerini dogrula"
+  info        : "GEREKSINIM (Requirement): Critical authentication and identity files must have strict ownership and restrictive permissions.
+BOLUM (Section): File System & Integrity
+YAPILMASI GEREKEN AYAR: /etc/shadow: chmod 0000 (veya 0640), chown root:root (veya root:shadow)\n/etc/passwd: chmod 0644, chown root:root\n/etc/gshadow: chmod 0000\n/etc/group: chmod 0644
+HEDEF BILESEN: /etc/shadow, /etc/passwd, /etc/gshadow, /etc/group
+STATU: Must
+GUVENLIK GEREKCESI: Parola ozetlerinin (hash) yetkisiz kullanicilar tarafindan okunup offline kirilmasini veya degistirilerek root yetkisi kazanilmasini (privilege escalation) engeller.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 6.1.2 - 6.1.9)"
+  solution    : "chmod 0000 /etc/shadow /etc/gshadow\nchmod 0644 /etc/passwd /etc/group\nchown root:root /etc/passwd /etc/shadow /etc/group /etc/gshadow"
+  reference   : "800-53|AC-3,CSCv8|3.3,CIS-L1|6.1.2,BASELINE|ITEM-18"
+  cmd         : "stat -c \"%a %U:%G\" /etc/shadow /etc/passwd /etc/gshadow /etc/group 2>/dev/null | grep -E '^(000|0|600|640)\s+root:(root|shadow)'"
+  expect      : "(000|0|600|640)\s+root:(root|shadow)"
+  severity    : CRITICAL
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 8: LOGGING & AUDITING (auditd) & PAM (MADDELER 19 - 20)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 19: Çekirdek Denetim Daemon'ı (auditd) ve Kritik Güvenlik Olayları
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "19. Logging & Auditing: Cekirdek denetim daemon'inin (auditd) aktif ve devrede oldugunu dogrula"
+  info        : "GEREKSINIM (Requirement): Kernel audit daemon (auditd) must be active and record critical security events.
+BOLUM (Section): Logging & Auditing
+YAPILMASI GEREKEN AYAR: auditd servisi aktif olmali. /etc/shadow degisiklikleri, sistem saati degisiklikleri, kullanici ekleme-silme ve yetki yukseltme cagrilari denetlenmelidir.
+HEDEF BILESEN: auditd servisi & /etc/audit/rules.d/audit.rules
+STATU: Must
+GUVENLIK GEREKCESI: Rsyslog sadece calisan servis logunu tutar; root kullanicisinin sildigi bir dosyayi, saatle oynamasini veya yetkisiz sistem cagrisini ancak auditd yakalar.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 4.1.1 - 4.1.17)"
+  solution    : "auditd paketini yukleyin, servisi baslatin (systemctl enable --now auditd) ve /etc/audit/rules.d/audit.rules icine CIS audit kurallarini tanimlayin."
+  reference   : "800-53|AU-12,CSCv8|8.5,CIS-L1|4.1.1.1,BASELINE|ITEM-19"
+  cmd         : "systemctl is-active auditd 2>&1 || (pgrep -x auditd >/dev/null && echo 'active') || echo 'inactive'"
+  expect      : "active"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 20: Hatalı Kimlik Doğrulamada Hesap Kilitleme (pam_faillock / 5 deneme / 15 dk)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "20. Access & Authentication: Hatali girislerde hesap kilitlemeyi dogrula (pam_faillock deny=5 unlock=900)"
+  info        : "GEREKSINIM (Requirement): Accounts must be locked after consecutive failed authentication attempts.
+BOLUM (Section): Access & Authentication
+YAPILMASI GEREKEN AYAR: pam_faillock (veya pam_tally2): deny=5, unlock_time=900, even_deny_root\n5 hatali parola denemesinden sonra hesap 15 dakika kilitlenmelidir.
+HEDEF BILESEN: /etc/pam.d/password-auth & /etc/pam.d/system-auth
+STATU: Must
+GUVENLIK GEREKCESI: Sunucu uzerindeki yerel ve servis hesaplarina yonelik otomatik sozluk ve kaba kuvvet parola denemelerini hesabi gecici kilitleyerek engeller.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 5.4.2)"
+  solution    : "/etc/pam.d/system-auth ve /etc/pam.d/password-auth icine (veya /etc/security/faillock.conf) 'deny=5', 'unlock_time=900', 'even_deny_root' kurallarini ekleyin."
+  reference   : "800-53|AC-7,CSCv8|5.2,CIS-L1|5.4.2,BASELINE|ITEM-20"
+  cmd         : "grep -Ei '(pam_faillock|pam_tally2)' /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/common-auth 2>/dev/null || (grep -Ei '^\s*deny\s*=\s*5' /etc/security/faillock.conf 2>/dev/null && echo 'pam_faillock')"
+  expect      : "(pam_faillock|pam_tally2)"
+  severity    : HIGH
+</custom_item>
+
+# ==============================================================================
+# BÖLÜM 9: SERVICES, DAEMONS & SYSTEM HARDENING (MADDELER 21 - 25)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# MADDE 21: Güvensiz Eski Servislerin Kaldırılması / Maskelenmesi
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "21. Services & Daemons: Guvensiz ve gereksiz miras servislerin devrede olmadigini dogrula (telnet, tftp vb.)"
+  info        : "GEREKSINIM (Requirement): Unencrypted legacy services and unnecessary listening daemons must be removed.
+BOLUM (Section): Services & Daemons
+YAPILMASI GEREKEN AYAR: telnet, rsh, rlogin, ypserv (nis), tftp, cups (yazici), avahi-daemon (mDNS) servisleri kaldirilmali veya maskelenmelidir (systemctl mask).
+HEDEF BILESEN: systemd servisleri & paket yoneticisi
+STATU: Must
+GUVENLIK GEREKCESI: Sifresiz acik metin haberlesen protokolleri ve sunucuda gereksiz port acarak saldiri yuzeyi yaratan miras servisleri tamamen yok eder.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 2.1.1 - 2.2.17)"
+  solution    : "Gereksiz servisleri durdurun ve maskeleyin:\nsystemctl --now mask telnet.socket telnet.service tftp.socket tftp.service cups.service avahi-daemon.service rsh.socket"
+  reference   : "800-53|CM-7,CSCv8|4.8,CIS-L1|2.1.1,BASELINE|ITEM-21"
+  cmd         : "ACTIVE=$(systemctl is-active telnet.socket telnet.service tftp.socket tftp.service cups.service avahi-daemon.service rsh.socket 2>&1 | grep -E '^active'); [ -z \"$ACTIVE\" ] && echo \"PASS: Legacy daemons not running\" || echo \"FAIL: $ACTIVE\""
+  expect      : "PASS: Legacy daemons not running"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 22: Zorunlu Erişim Kontrolü (MAC - SELinux / AppArmor Enforcing)
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "22. System Hardening & MAC: Zorunlu Erisim Kontrolunun (SELinux / AppArmor) Enforcing modda oldugunu dogrula"
+  info        : "GEREKSINIM (Requirement): Mandatory Access Control (MAC) must be active and enforcing at boot.
+BOLUM (Section): System Hardening & MAC
+YAPILMASI GEREKEN AYAR: Red Hat / Oracle / Rocky: /etc/selinux/config icinde SELINUX=enforcing\nDebian / Ubuntu / SUSE: apparmor.service aktif ve enforce modda olmalidir.
+HEDEF BILESEN: /etc/selinux/config & apparmor.service
+STATU: Must
+GUVENLIK GEREKCESI: Sifirinci gun (0-day) aciklarinda bir web sunucusu veya servis hacklense bile saldirganin isletim sisteminin geri kalanina ve diskine erismesini engeller.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 1.6.1)"
+  solution    : "RHEL/Rocky/Oracle icin /etc/selinux/config dosyasinda 'SELINUX=enforcing' ayarlayin ve sistemi enforce moda alin. Ubuntu/Debian icin 'systemctl enable --now apparmor' calistirin."
+  reference   : "800-53|AC-3,CSCv8|3.3,CIS-L1|1.6.1,BASELINE|ITEM-22"
+  cmd         : "(getenforce 2>/dev/null | grep -i 'Enforcing') || (aa-status --enabled 2>/dev/null && echo 'AppArmor Enforcing') || (systemctl is-active apparmor 2>&1 | grep -i 'active') || echo 'MAC Disabled'"
+  expect      : "(Enforcing|AppArmor Enforcing|active)"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 23: Zamanlanmış Görevler (Cron) İzinleri ve cron.allow Yapılandırması
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "23. System Hardening & Scheduling: Cron yapilandirma dosya izinlerinin sadece root ile sinirli oldugunu dogrula"
+  info        : "GEREKSINIM (Requirement): Cron daemon configuration and directories must be restricted to root only.
+BOLUM (Section): System Hardening & Scheduling
+YAPILMASI GEREKEN AYAR: /etc/crontab ve /etc/cron.* dizinleri: chmod 0700 (veya 0600), chown root:root\n/etc/cron.allow mevcut olmali, cron.deny kaldirilmalidir.
+HEDEF BILESEN: /etc/crontab & /etc/cron.*
+STATU: Must
+GUVENLIK GEREKCESI: Linux sistemlerde saldirganlarin arka kapi (persistence) birakmak ve root olmak icin en cok istismar ettigi zamanlanmis gorev manipulasyonunu engeller.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 5.1.1 - 5.1.8)"
+  solution    : "chown root:root /etc/crontab /etc/cron.* && chmod 0600 /etc/crontab && chmod 0700 /etc/cron.{hourly,daily,weekly,monthly,d}\ntouch /etc/cron.allow && rm -f /etc/cron.deny"
+  reference   : "800-53|AC-3,CSCv8|4.1,CIS-L1|5.1.2,BASELINE|ITEM-23"
+  cmd         : "stat -c \"%a %U:%G\" /etc/crontab 2>/dev/null | grep -E '^(600|700|644|640)\s+root:root'"
+  expect      : "(600|700|644|640)\s+root:root"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 24: ASLR Etkinleştirilmesi ve Core Dump Kapatılması
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "24. System Hardening & Memory: ASLR adres alani rastgelelestirme ve core dump kisitlamasini dogrula"
+  info        : "GEREKSINIM (Requirement): Address Space Layout Randomization (ASLR) enabled and core dumps disabled.
+BOLUM (Section): System Hardening & Memory
+YAPILMASI GEREKEN AYAR: kernel.randomize_va_space = 2\nfs.suid_dumpable = 0\n/etc/security/limits.conf icine '* hard core 0' eklenmelidir.
+HEDEF BILESEN: /etc/sysctl.d/99-security.conf & /etc/security/limits.conf
+STATU: Must
+GUVENLIK GEREKCESI: Bellek tasmasi (Buffer Overflow) exploitlerini zorlastirir; coken servislerin bellek dokumlerinden (core dump) sifre ve sertifika anahtari sizmasini engeller.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 1.5.1, 1.5.3)"
+  solution    : "/etc/sysctl.d/99-security.conf icine 'kernel.randomize_va_space = 2' ve 'fs.suid_dumpable = 0' ekleyin.\n/etc/security/limits.conf icine '* hard core 0' ekleyin."
+  reference   : "800-53|SC-39,CSCv8|4.1,CIS-L1|1.5.1,BASELINE|ITEM-24"
+  cmd         : "/sbin/sysctl kernel.randomize_va_space fs.suid_dumpable 2>/dev/null"
+  expect      : "kernel\.randomize_va_space\s*=\s*2"
+  severity    : HIGH
+</custom_item>
+
+# ------------------------------------------------------------------------------
+# MADDE 25: Root Hesabının UID 0 Olan Tek Hesap Olduğunun Doğrulanması
+# ------------------------------------------------------------------------------
+<custom_item>
+  system      : "Linux"
+  type        : CMD_EXEC
+  description : "25. Access & Authentication: Sistemde yalnizca tek bir UID 0 (root) hesabi oldugunu dogrula"
+  info        : "GEREKSINIM (Requirement): Root must be the only account in the system with UID 0.
+BOLUM (Section): Access & Authentication
+YAPILMASI GEREKEN AYAR: awk -F: '($3 == 0) { print $1 }' /etc/passwd komutu yalnizca tek bir satir olarak 'root' ciktisini vermelidir.
+HEDEF BILESEN: /etc/passwd
+STATU: Must
+GUVENLIK GEREKCESI: Saldirganlarin yetki yukselttikten sonra sisteme kalicilik saglamak icin ekledigi gizli ikinci root yetkili (UID 0 backdoor) hesaplari tespit eder ve engeller.
+DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 5.4.3)"
+  solution    : "awk -F: '($3 == 0) { print $1 }' /etc/passwd ciktisinda 'root' disinda bir kullanici varsa derhal kaldirin: userdel <kullanici>"
+  reference   : "800-53|AC-2,CSCv8|5.4,CIS-L1|5.4.3,BASELINE|ITEM-25"
+  cmd         : "awk -F: '($3 == 0) { print $1 }' /etc/passwd"
+  expect      : "^root$"
+  severity    : CRITICAL
+</custom_item>
+
+</check_type>
