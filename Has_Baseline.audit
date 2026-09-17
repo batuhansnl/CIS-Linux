@@ -255,13 +255,13 @@
   severity    : HIGH
 </custom_item>
 
-# --- 1.4.2: GRUB onyükleyici parola korumasinin tanimli oldugunu dogrula ---
+# --- 1.4.2: GRUB onyukleyici parola korumasinin tanimli oldugunu dogrula ---
 <custom_item>
   system      : "Linux"
   type        : CMD_EXEC
-  description : "1.4.2 GRUB onyükleyici parola korumasinin tanimli oldugunu dogrula"
+  description : "1.4.2 GRUB onyukleyici parola korumasinin tanimli oldugunu dogrula"
   info        : "AYARIN ANLAMI: Fiziksel veya konsol erisimi olan kisilerin init=/bin/bash veya single mod ile root sifresini kirmasini engeller.\nBULGU SEVIYESI: YUKSEK (High)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "grub2-setpassword komutu ile GRUB onyükleyici parolasi olusturun."
+  solution    : "grub2-setpassword komutu ile GRUB onyukleyici parolasi olusturun."
   reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|1.4.2"
   cmd         : "grep -E '^password' /boot/grub2/grub.cfg /boot/grub/grub.cfg /boot/grub2/user.cfg 2>/dev/null || echo 'PASS: GRUB password configured'"
   expect      : "(password|PASS: GRUB password configured)"
@@ -962,7 +962,7 @@
   type        : CMD_EXEC
   description : "5.4.2 Sistem ve hizmet hesaplarinin interaktif kabuga kapatildigini dogrula (UID < 1000 nologin)"
   info        : "AYARIN ANLAMI: daemon, bin, sys vb. servis hesaplarinin interaktif oturum acmasinin engellenmesidir.\nBULGU SEVIYESI: KRITIK (Critical)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "UID < 1000 olan hesaplara nologin kabugu atayin: usermod -s /sbin/nologin <hesap_adi>"
+  solution    : "UID < 1000 olan hesaplara nologin kabugu atayin: usermod -s /sbin/nologin [hesap_adi]"
   reference   : "800-53|AC-2,CSCv8|5.1,CIS-L1|5.4.2"
   cmd         : "FAIL=$(awk -F: '($3 < 1000 && $3 > 0 && $1 != "sync" && $1 != "shutdown" && $1 != "halt") { if ($7 !~ /(nologin|false)/) print $1 }' /etc/passwd); [ -z "$FAIL" ] && echo "PASS: All system accounts shell disabled" || echo "FAIL: $FAIL""
   expect      : "PASS: All system accounts shell disabled"
@@ -975,7 +975,7 @@
   type        : CMD_EXEC
   description : "5.4.3 Sistemde yalnizca tek bir UID 0 (root) hesabi oldugunu dogrula"
   info        : "AYARIN ANLAMI: Linux sistemde root haklarina (UID 0) sahip baska gizli bir hesabin (backdoor root) bulunmamasidir.\nBULGU SEVIYESI: KRITIK (Critical)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "awk -F: '($3 == 0) { print $1 }' /etc/passwd ciktisinda 'root' disinda bir kullanici varsa derhal kaldirin: userdel <kullanici>"
+  solution    : "awk -F: '($3 == 0) { print $1 }' /etc/passwd ciktisinda 'root' disinda bir kullanici varsa derhal kaldirin: userdel [kullanici]"
   reference   : "800-53|AC-2,CSCv8|5.4,CIS-L1|5.4.3"
   cmd         : "awk -F: '($3 == 0) { print $1 }' /etc/passwd"
   expect      : "^root$"
@@ -1097,7 +1097,7 @@
   type        : CMD_EXEC
   description : "6.2.1 /etc/shadow dosyasinda bos parolali hicbir hesap bulunmadigini dogrula"
   info        : "AYARIN ANLAMI: Parolasiz herhangi bir hesabin sistemde oturum acmasini kesinlikle engeller.\nBULGU SEVIYESI: KRITIK (Critical)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "passwd -l <bos_hesap> komutu ile parolasiz hesaplari kilitleyin."
+  solution    : "passwd -l [bos_hesap] komutu ile parolasiz hesaplari kilitleyin."
   reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|6.2.1"
   cmd         : "awk -F: '($2 == "" ) { print $1 }' /etc/shadow"
   expect      : "^$"
@@ -1110,7 +1110,7 @@
   type        : CMD_EXEC
   description : "6.2.2 Sistemde mukerrer (duplicate) UID numarasina sahip hesap bulunmadigini dogrula"
   info        : "AYARIN ANLAMI: Iki farkli kullanici adinin ayni UID'yi paylasarak ayni yetkilere ve dosyalara sahip olmasini onler.\nBULGU SEVIYESI: YUKSEK (High)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "Mukerrer UID tespit edilen hesaplarin UID'lerini usermod -u <yeni_uid> ile tekil hale getirin."
+  solution    : "Mukerrer UID tespit edilen hesaplarin UID'lerini usermod -u [yeni_uid] ile tekil hale getirin."
   reference   : "800-53|AC-2,CSCv8|5.1,CIS-L1|6.2.16"
   cmd         : "awk -F: '{print $3}' /etc/passwd | sort -n | uniq -c | awk '($1 > 1) {print $2}'"
   expect      : "^$"
@@ -1123,7 +1123,7 @@
   type        : CMD_EXEC
   description : "6.2.3 Sistemde mukerrer (duplicate) GID numarasina sahip grup bulunmadigini dogrula"
   info        : "AYARIN ANLAMI: Iki farkli grup adinin ayni GID numarasini paylasmasini onler.\nBULGU SEVIYESI: YUKSEK (High)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "Mukerrer GID'li gruplarin GID numaralarini groupmod -g <yeni_gid> ile tekil hale getirin."
+  solution    : "Mukerrer GID'li gruplarin GID numaralarini groupmod -g [yeni_gid] ile tekil hale getirin."
   reference   : "800-53|AC-2,CSCv8|5.1,CIS-L1|6.2.17"
   cmd         : "awk -F: '{print $3}' /etc/group | sort -n | uniq -c | awk '($1 > 1) {print $2}'"
   expect      : "^$"
@@ -1162,7 +1162,7 @@
   type        : CMD_EXEC
   description : "6.2.6 'shadow' grubuna hicbir kullanicinin atanmadigini (grubun bos oldugunu) dogrula"
   info        : "AYARIN ANLAMI: shadow grubu /etc/shadow dosyasini okuma yetkisine sahip ozel bir gruptur. Hicbir kullaniciya verilmemelidir.\nTEHLIKE: shadow grubuna eklenen kullanici tum parola hash'lerini okuyabilir.\nBULGU SEVIYESI: KRITIK (Critical)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "awk -F: '($1 == "shadow") {print $4}' /etc/group ciktisinda kullanici varsa gpasswd -d <kullanici> shadow calistirin."
+  solution    : "awk -F: '($1 == "shadow") {print $4}' /etc/group ciktisinda kullanici varsa gpasswd -d [kullanici] shadow calistirin."
   reference   : "800-53|AC-2,CSCv8|5.4,CIS-L1|6.2.20"
   cmd         : "awk -F: '($1 == "shadow" && $4 != "") {print $4}' /etc/group"
   expect      : "^$"

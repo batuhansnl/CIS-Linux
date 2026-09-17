@@ -2,7 +2,7 @@
 # TENABLE NESSUS - LINUX SERVER CONFIGURATION BASELINE CHECKLIST (25 MADDE)
 # ==============================================================================
 # Bu audit dosyası, Siber Güvence ve CIS Level 1 standartlarına göre hazırlanmış
-# resmi "Configuration Baseline Checklist — Linux Server" Excel tablosundaki
+# resmi "Configuration Baseline Checklist -- Linux Server" Excel tablosundaki
 # 25 temel güvenlik maddesinin Tenable Nessus ile taranabilmesi için oluşturulmuştur.
 #
 # MATRİS VE MADDE SAYISI: Birebir 25 Madde (Eksiksiz & Değiştirilmemiş)
@@ -106,7 +106,7 @@ HEDEF BILESEN: /etc/fstab
 STATU: Must
 GUVENLIK GEREKCESI: Saldirganlarin /tmp veya bellek alanlarina zararli script/binary yukleyip dogrudan calistirmasini (arbitrary code execution) engeller.
 DEGISIKLIK DURUMU: Mevcut Madde (Guclendirildi: nodev,nosuid,noexec Eklendi)"
-  solution    : "/etc/fstab icinde /tmp, /var/tmp ve /dev/shm satirlarina 'nodev,nosuid,noexec' seceneklerini ekleyin ve 'mount -o remount <dizin>' komutunu calistirin."
+  solution    : "/etc/fstab icinde /tmp, /var/tmp ve /dev/shm satirlarina 'nodev,nosuid,noexec' seceneklerini ekleyin ve 'mount -o remount [dizin]' komutunu calistirin."
   reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|1.1.10,BASELINE|ITEM-04"
   cmd         : "mount | grep -E '\s/(tmp|var/tmp|dev/shm)\s' | grep -E '(nodev|nosuid|noexec)' || (grep -E '\s/(tmp|var/tmp|dev/shm)\s' /etc/fstab 2>/dev/null | grep -E '(nodev|nosuid|noexec)')"
   expect      : "(nodev|nosuid|noexec)"
@@ -240,7 +240,7 @@ HEDEF BILESEN: /etc/passwd
 STATU: Must
 GUVENLIK GEREKCESI: Saldirganlarin servis hesaplarini kullanarak sunucu uzerinde interaktif oturum acmasini veya komut calistirmasini engeller.
 DEGISIKLIK DURUMU: Mevcut Madde (Must yapildi, Shell Kriteri Eklendi)"
-  solution    : "UID < 1000 olan servis hesaplarina /sbin/nologin kabugu atayin:\nusermod -s /sbin/nologin <hesap_adi>"
+  solution    : "UID < 1000 olan servis hesaplarina /sbin/nologin kabugu atayin:\nusermod -s /sbin/nologin [hesap_adi]"
   reference   : "800-53|AC-2,CSCv8|5.1,CIS-L1|5.4.2,BASELINE|ITEM-10"
   cmd         : "FAIL=$(awk -F: '($3 < 1000 && $3 > 0 && $1 != \"sync\" && $1 != \"shutdown\" && $1 != \"halt\") { if ($7 !~ /(nologin|false)/) print $1 }' /etc/passwd); [ -z \"$FAIL\" ] && echo \"PASS: All system accounts shell disabled\" || echo \"FAIL: Non-compliant accounts: $FAIL\""
   expect      : "PASS: All system accounts shell disabled"
@@ -579,7 +579,7 @@ HEDEF BILESEN: /etc/passwd
 STATU: Must
 GUVENLIK GEREKCESI: Saldirganlarin yetki yukselttikten sonra sisteme kalicilik saglamak icin ekledigi gizli ikinci root yetkili (UID 0 backdoor) hesaplari tespit eder ve engeller.
 DEGISIKLIK DURUMU: YENI EKLENDI (Kritik Savunma - CIS 5.4.3)"
-  solution    : "awk -F: '($3 == 0) { print $1 }' /etc/passwd ciktisinda 'root' disinda bir kullanici varsa derhal kaldirin: userdel <kullanici>"
+  solution    : "awk -F: '($3 == 0) { print $1 }' /etc/passwd ciktisinda 'root' disinda bir kullanici varsa derhal kaldirin: userdel [kullanici]"
   reference   : "800-53|AC-2,CSCv8|5.4,CIS-L1|5.4.3,BASELINE|ITEM-25"
   cmd         : "awk -F: '($3 == 0) { print $1 }' /etc/passwd"
   expect      : "^root$"

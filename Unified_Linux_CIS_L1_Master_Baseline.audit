@@ -1106,7 +1106,7 @@ KAPSAM: Tum Linux Sunuculari"
 TEHLIKE: Web zafiyetiyle bu hesaplar ele gecirilirse interaktif shell alinmasi zorlasir.
 BULGU SEVIYESI: YUKSEK (High)
 KAPSAM: Tum Linux Sunuculari"
-  solution    : "usermod -s /sbin/nologin <hesap_adi>"
+  solution    : "usermod -s /sbin/nologin [hesap_adi]"
   reference   : "800-53|AC-2,CSCv8|5.4,CIS-L1|5.4.2"
   cmd         : "awk -F: '($1 != "root" && $1 != "sync" && $1 != "shutdown" && $1 != "halt" && $3 < 1000 && $7 !~ /(nologin|false)/) {print $1}' /etc/passwd"
   expect      : "^$"
@@ -1274,7 +1274,7 @@ KAPSAM: Tum Linux Sunuculari"
   info        : "AYARIN ANLAMI: Sistem komut dizinlerinde herhangi bir kullanicinin degistirebilecegi dosya olmamalidir.
 BULGU SEVIYESI: YUKSEK (High)
 KAPSAM: Tum Linux Sunuculari"
-  solution    : "chmod o-w <dosya_adi>"
+  solution    : "chmod o-w [dosya_adi]"
   reference   : "800-53|AC-6,CSCv8|3.3,CIS-L1|6.1.10"
   cmd         : "find /etc /usr/bin /usr/sbin -xdev -type f -perm -0002 2>/dev/null"
   expect      : "^$"

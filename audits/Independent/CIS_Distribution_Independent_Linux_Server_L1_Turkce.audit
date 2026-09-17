@@ -934,7 +934,7 @@
   type        : CMD_EXEC
   description : "5.4.2 Sistem ve hizmet hesaplarinin interaktif kabuga kapatildigini dogrula (UID < 1000 nologin)"
   info        : "AYARIN ANLAMI: daemon, bin, sys vb. servis hesaplarinin konsol veya SSH ile interaktif komut calistiramamasidir.\nTEHLIKE: Saldirganlarin servis hesaplarini kullanarak sistemde oturum acmasini engeller.\nBULGU SEVIYESI: KRITIK (Critical)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "UID < 1000 olan hesaplara nologin kabugu atayin: usermod -s /sbin/nologin <hesap_adi>"
+  solution    : "UID < 1000 olan hesaplara nologin kabugu atayin: usermod -s /sbin/nologin [hesap_adi]"
   reference   : "800-53|AC-2,CSCv8|5.1,CIS-L1|5.4.2"
   cmd         : "FAIL=$(awk -F: '($3 < 1000 && $3 > 0 && $1 != "sync" && $1 != "shutdown" && $1 != "halt") { if ($7 !~ /(nologin|false)/) print $1 }' /etc/passwd); [ -z "$FAIL" ] && echo "PASS: All system accounts shell disabled" || echo "FAIL: $FAIL""
   expect      : "PASS: All system accounts shell disabled"
@@ -947,7 +947,7 @@
   type        : CMD_EXEC
   description : "5.4.3 Sistemde yalnizca tek bir UID 0 (root) hesabi oldugunu dogrula"
   info        : "AYARIN ANLAMI: Linux sistemde root haklarina (UID 0) sahip baska gizli bir hesabin bulunmamasidir.\nTEHLIKE: Saldirganlarin arka kapi (backdoor root) olarak ekledigi ikinci admin hesaplarini tespit eder.\nBULGU SEVIYESI: KRITIK (Critical)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "awk -F: '($3 == 0) { print $1 }' /etc/passwd ciktisinda 'root' disinda bir kullanici varsa derhal kaldirin: userdel <kullanici>"
+  solution    : "awk -F: '($3 == 0) { print $1 }' /etc/passwd ciktisinda 'root' disinda bir kullanici varsa derhal kaldirin: userdel [kullanici]"
   reference   : "800-53|AC-2,CSCv8|5.4,CIS-L1|5.4.3"
   cmd         : "awk -F: '($3 == 0) { print $1 }' /etc/passwd"
   expect      : "^root$"
@@ -1043,7 +1043,7 @@
   type        : CMD_EXEC
   description : "6.2.1 /etc/shadow dosyasinda bos parolali hicbir hesap bulunmadigini dogrula"
   info        : "AYARIN ANLAMI: Parolasiz herhangi bir hesabin sistemde oturum acmasini kesinlikle engeller.\nTEHLIKE: Kimlik dogrulamasi olmadan sisteme erisimi onler.\nBULGU SEVIYESI: KRITIK (Critical)\nKAPSAM: Tum Kurumsal Linux Sunuculari"
-  solution    : "passwd -l <bos_hesap> komutu ile parolasiz hesaplari kilitleyin."
+  solution    : "passwd -l [bos_hesap] komutu ile parolasiz hesaplari kilitleyin."
   reference   : "800-53|IA-5,CSCv8|5.2,CIS-L1|6.2.1"
   cmd         : "awk -F: '($2 == "" ) { print $1 }' /etc/shadow"
   expect      : "^$"
